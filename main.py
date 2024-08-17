@@ -62,8 +62,8 @@ def main():
 
     ## OPTIONAL: RUN YEARLY SIMULATION FOR INDIVIDUAL EMPLOYEE ##
     #############################################################
-    #employee_id = 95124
-    #main_functions.employee_year_simulation(g_config, employee_id, ref_date)
+    employee_id = 95124
+    main_functions.employee_year_simulation(g_config, employee_id, ref_date)
 
 
 if __name__ == "__main__":

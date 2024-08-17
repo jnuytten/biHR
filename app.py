@@ -51,48 +51,27 @@ app = dash.Dash(__name__)
 
 
 cost_frame, revenue_frame = calculate_employee.get_monthly_summary_data(ref_date)
-#df1 = data_processing.get_data_frame_1()
-#df2 = data_processing.get_data_frame_2()
+global_dataframes = {
+    'cost_frame': cost_frame,
+    'revenue_frame': revenue_frame
+}
 
 app.layout = html.Div([
-    html.H1(f"Maandoverzicht {gh.get_month_name(ref_date.month)}"),
-    dash_table.DataTable(
-        id='table-cost_frame',
-        columns=[{'name': col, 'id': col, 'editable': True} for col in cost_frame.columns],
-        data=cost_frame.to_dict('records'),
-        editable=True
-    ),
-    dcc.Graph(id='graph-cost_frame'),
-
-    html.Hr(),
-
-    dash_table.DataTable(
-        id='table-revenue_frame',
-        columns=[{'name': col, 'id': col, 'editable': True} for col in revenue_frame.columns],
-        data=revenue_frame.to_dict('records'),
-        editable=True
-    ),
-    dcc.Graph(id='graph-revenue_frame')
+    dcc.Location(id='url', refresh=False),
+    html.Div(id='page-content')
 ])
 
-@app.callback(
-    Output('graph-cost_frame', 'figure'),
-    Input('table-cost_frame', 'data')
-)
-
-def update_graph_cost_frame(data):
-    df = pd.DataFrame(data)
-    fig = px.line(df, x='A', y='B', title='Cost frame Visualization')
-    return fig
-
-@app.callback(
-    Output('graph-revenue_frame', 'figure'),
-    Input('table-revenue_frame', 'data')
-)
-def update_graph_revenue_frame(data):
-    df = pd.DataFrame(data)
-    fig = px.line(df, x='X', y='Y', title='Revenue frame Visualization')
-    return fig
+@app.callback(Output('page-content', 'children'),
+              [Input('url', 'pathname')])
+def display_page(pathname):
+    if pathname == '/company_forecast':
+        from src.pages import company_forecast
+        return company_forecast.layout
+    elif pathname == '/employee_simulation':
+        from src.pages import employee_simulation
+        return employee_simulation.layout
+    else:
+        return '404'
 
 if __name__ == '__main__':
     app.run_server(debug=True)
