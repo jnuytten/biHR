@@ -15,22 +15,41 @@
 #
 import calendar
 import configparser
+from pickle import FALSE
+
 import pandas as pd
 from datetime import datetime
 from src.utils import gen_helpers as gh
 
 
-def worker_list_get(scope: str = "all") -> pd.DataFrame:
+def worker_list_get(scope: str = "all", ref_date: datetime = False) -> pd.DataFrame:
     """Get DataFrame with all workers from SQL, optional argument can be set to
     'all' (default) showing all workers
     'intern' showing all workers except freelancers
-    other values, showing workers which match exactly with the role_name"""
-    if scope == 'all':
-        query = "SELECT id, name, role_name FROM people_workers"
-    elif scope == 'intern':
-        query = "SELECT id, name, role_name FROM people_workers WHERE role_name != 'Freelance'"
+    other values, showing workers which match exactly with the role_name
+    optional argument ref_date can be set to a datetime object, only employees with contract valid in that month are
+    included"""
+    # if optional ref_date is set, only employees with contract valid in that month are included
+    if ref_date and scope == 'intern':
+        # only contracts not ending before ref_date's month start are included, end_date_bracket equals 1st of the month
+        end_date_bracket = ref_date.replace(day=1).strftime('%Y-%m-%d')
+        # only contracts starting before ref_date's month end are included, start_date_bracket equals last of the month
+        last_day = calendar.monthrange(ref_date.year, ref_date.month)[1]
+        start_date_bracket = ref_date.replace(day=last_day).strftime('%Y-%m-%d')
+        query = f"""
+        SELECT DISTINCT pec.employee_id, pw.name, pw.role_name
+        FROM people_employee_contracts pec
+        JOIN people_workers pw ON pec.employee_id = pw.id
+        WHERE pec.start_date <= '{start_date_bracket}' AND (pec.end_date > '{end_date_bracket}' OR pec.end_date IS
+        NULL);
+        """
     else:
-        query = f"SELECT id, name, role_name FROM people_workers WHERE role_name = '{scope}'"
+        if scope == 'all':
+            query = "SELECT id, name, role_name FROM people_workers"
+        elif scope == 'intern':
+            query = "SELECT id, name, role_name FROM people_workers WHERE role_name != 'Freelance'"
+        else:
+            query = f"SELECT id, name, role_name FROM people_workers WHERE role_name = '{scope}'"
 
     with gh.get_db_connection() as conn:
         with conn.cursor() as cursor:

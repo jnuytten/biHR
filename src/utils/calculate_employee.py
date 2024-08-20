@@ -276,6 +276,8 @@ def yearly_cost_income(config: configparser.ConfigParser, employee_id: int, ref_
     if contract_change:
         gh.logger(f"Contract for {employee_id} is starting or ending in year {ref_date.year}.")
 
+    # todo: review all FTE logic whether it still makes sense!!!
+    # todo: FTE as set parameter here
     # calculate correction factor FTE, to take into the actual fte time that are paid hours
     company_paid_ratio, vacation_time_ratio = calculate_calendar.get_fte_ratios(
         employee_id,
@@ -296,14 +298,20 @@ def yearly_cost_income(config: configparser.ConfigParser, employee_id: int, ref_
 
     # get FTE correction factors
     actual_fte = contract_frame.loc[contract_id, 'fte'] * company_paid_ratio
+
+    # todo: dayrate, MSP fee as set parameter here
     # calculate yearly revenue
     project_id, project_start, project_end = calculate_project.get_consultant_project(employee_id, ref_date)
     dayrate, msp_fee = calculate_project.get_project_dayrate(project_id)
     yearly_revenue = yearly_billable_days * dayrate * (1 - msp_fee)
 
+    # todo: Maandloon as set parameter here
     # calculate gross salary
     bezoldiging = contract_frame.loc[contract_id, 'monthly_salary'] * company_paid_ratio
 
+    # todo: insert function here to calculate mobility cost if "Level"  or "Mobility" is a set parameter
+
+    # todo: modify function to get bonus if "Level" is a set parameter and modify function to get net allowance if "Mobility" is a set parameter
     # calculate full cost matrix
     cost_overview = {
         'Employee': employee_id,

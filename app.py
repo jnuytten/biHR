@@ -18,7 +18,7 @@
 #
 
 import dash
-from dash import dcc, html, Input, Output, dash_table
+from dash import dcc, html, Input, Output
 import pandas as pd
 import locale
 import configparser
@@ -49,7 +49,6 @@ main_functions.load_dataframes(ref_date, g_config)
 
 app = dash.Dash(__name__)
 
-
 cost_frame, revenue_frame = calculate_employee.get_monthly_summary_data(ref_date)
 global_dataframes = {
     'cost_frame': cost_frame,
@@ -63,12 +62,14 @@ app.layout = html.Div([
 
 @app.callback(Output('page-content', 'children'),
               [Input('url', 'pathname')])
+
 def display_page(pathname):
     if pathname == '/company_forecast':
         from src.pages import company_forecast
         return company_forecast.layout
     elif pathname == '/employee_simulation':
         from src.pages import employee_simulation
+        employee_simulation.register_callbacks(app)
         return employee_simulation.layout
     else:
         return '404'
