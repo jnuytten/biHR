@@ -44,8 +44,10 @@ def refresh_from_officient(config: configparser.ConfigParser, ref_date: datetime
     """Refresh all data in SQL database from Officient API and input files"""
     # log main function execution
     print(f"-- Refreshing Officient data in SQL database")
+    # DEBUG
+    print(config.sections())
     # first create backup of the database
-    gh.create_sql_dump()
+    gh.create_sql_dump(config)
     # update calendar and saldi for all employees in SQL
     db_retrieve.employee_calendar_compose(ref_date.year)
     db_retrieve.employee_saldi_compose(ref_date.year, config)
@@ -57,6 +59,8 @@ def refresh_from_csv(config: configparser.ConfigParser):
     """Refresh all data in SQL database from Officient API and input files"""
     # log main function execution
     print(f"-- Refreshing CSV data in SQL database")
+    # DEBUG
+    print(config.sections())
     # compose list of employees and freelancers, and input into SQL
     db_retrieve.workers_list_compose(config.get('FILES', 'freelancers'))
     # compose a list of freelance contracts and a list of projects into SQL
@@ -64,16 +68,11 @@ def refresh_from_csv(config: configparser.ConfigParser):
 
 
 def company_year_forecast(config: configparser.ConfigParser, ref_date: datetime):
-    """Calculate the forecast of the year for the whole company and generate a html report
-    The report includes a table per month with the forecasted costs and revenues for the company
-    and a table with the total forecasted costs and revenues for the year."""
+    """Calculate the forecast of the year for the whole company and generate a dataframe summarizing this."""
     # log main function execution
     print(f"-- Calculating yearly forecast for company for {ref_date.year}")
-    # get location of output directory
-    output_dir = config.get('PARAMETERS', 'outputdir')
     # get global hr values and global freelance contracts
     global_hr_values = db_supply.global_hr_values
-    content = ""
     # get monthly summaries of employee data
     monthly_employee_data = calculate_employee.get_year_of_monthly_summaries(config, ref_date)
     # get monthly summaries of freelancer data
@@ -96,30 +95,31 @@ def company_year_forecast(config: configparser.ConfigParser, ref_date: datetime)
         total_cost = employee_cost + freelance_cost + management_cost + administration_cost + general_cost
         total_revenue = employee_revenue + freelance_revenue
         total_margin = total_revenue - total_cost
-        # creating html content for the month
+        # adding all values to the dataframe
         month_content = html_report.forecast_company_month(month, monthly_employee_data[month],
                                                            monthly_freelance_data[month], management_cost,
                                                            administration_cost, general_cost)
-        # print month to html
-        html_report.generate_html(f'{output_dir}/report-company_{ref_date.year}_{month}_forecast.html',
-                                  f'Maandoverzicht {ref_date.year} {gh.get_month_name(month)}', month_content)
-        # generate additional html file with detailed numbers for employees
-        employee_month_forecast(config, ref_date.replace(month=month))
+        # todo: we should capture the month_content data in a buffer somewhere to quickly generate
+        # month specific pages
+        # maybe we should do this with a dropdown as on the employee page, and when a month is selected in
+        # the dropdown, the month detail appears in a pane below the yearly summary
+
+        # todo: we also need this but this can be on a separate function and be calculated every time again
+        #employee_month_forecast(config, ref_date.replace(month=month))
 
         # add month summary data to year dataframe
         summary = {
-            'Maand': f'<a href="report-company_{ref_date.year}_{month}_forecast.html">'
-                     f'{gh.get_month_name(month)}</a>',
-            'Personeelskost': round(employee_cost, 2),
-            'Freelance kost': round(freelance_cost, 2),
-            'Management tijd': round(management_cost, 2),
-            'Administratie': round(administration_cost, 2),
-            'Algemene kosten': round(general_cost, 2),
-            'Totaal kosten': round(total_cost, 2),
-            'Omzet internen': round(employee_revenue, 2),
-            'Omzet freelancers': round(freelance_revenue, 2),
-            'Omzet': round(total_revenue, 2),
-            'Bruto marge': round(total_margin, 2)
+            'Maand': gh.get_month_name(month),
+            'Personeelskost': round(employee_cost, 0),
+            'Freelance kost': round(freelance_cost, 0),
+            'Management tijd': round(management_cost, 0),
+            'Administratie': round(administration_cost, 0),
+            'Algemene kosten': round(general_cost, 0),
+            'Totaal kosten': round(total_cost, 0),
+            'Omzet internen': round(employee_revenue, 0),
+            'Omzet freelancers': round(freelance_revenue, 0),
+            'Omzet': round(total_revenue, 0),
+            'Bruto marge': round(total_margin, 0)
         }
         year_data[month] = summary
 
@@ -131,10 +131,8 @@ def company_year_forecast(config: configparser.ConfigParser, ref_date: datetime)
     cal_sum = overview_frame.sum()
     sum_series = pd.Series(cal_sum, name='Totaal')
     overview_frame = pd.concat([overview_frame, sum_series.to_frame().T])
-    # set escape=False to make sure links to monthly reports are clickable, beware this exposes to XSS attacks
-    content += overview_frame.to_html(escape=False)
-    # print all to html
-    html_report.generate_html(f'{output_dir}/report-company_year_forecast.html', 'Jaaroverzicht bedrijf', content)
+
+    return overview_frame, monthly_employee_data, monthly_freelance_data
 
 
 def employee_month_forecast(config: configparser.ConfigParser, ref_date: datetime):

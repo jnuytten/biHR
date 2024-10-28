@@ -19,12 +19,10 @@
 
 import dash
 from dash import dcc, html, Input, Output
-import pandas as pd
 import locale
 import configparser
 from datetime import datetime
-import plotly.express as px
-from src.utils import calculate_employee, gen_helpers as gh, main_functions
+from src.utils import calculate_employee, main_functions
 
 ### LOAD GENERAL SETTINGS ###
 #############################
@@ -47,7 +45,7 @@ main_functions.load_dataframes(ref_date, g_config)
 ### INITIALIZE DASH APP ###
 ###########################
 
-app = dash.Dash(__name__)
+app = dash.Dash(__name__, suppress_callback_exceptions=True)
 
 cost_frame, revenue_frame = calculate_employee.get_monthly_summary_data(ref_date)
 global_dataframes = {

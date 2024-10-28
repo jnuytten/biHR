@@ -230,8 +230,9 @@ def employee_saldi_get(employee_id: int, year: int, config: configparser.ConfigP
     saldi['sickness'] = int(max(0, year_limits['Ziekte'] - calendar['sick_time_total'].sum()))
     for absence_saldi in saldi:
         if saldi[absence_saldi] < 0:
-            raise ValueError(f'Calculated remaining saldi for employee {employee_id} of type {absence_saldi} is below'
-                             f'zero.')
+            saldi[absence_saldi] = 0
+            print(f'Calculated remaining saldi for employee {employee_id} of type {absence_saldi} is below'
+                             f'zero. Setting to zero.')
     return saldi
 
 

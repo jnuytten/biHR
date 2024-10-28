@@ -1,0 +1,55 @@
+# Copyright (C) 2024 Joachim Nuyttens
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with this program.  If not, see
+# <https://www.gnu.org/licenses/>.
+#
+#
+# This script is used to refresh the data in the SQL database. It is used to update the data in the SQL database with
+# the latest data from the Officient API and CSV files.
+#
+
+import configparser
+import locale
+from datetime import datetime
+from src.utils import main_functions
+
+
+def main():
+    print("biHR Copyright (C) 2024 Joachim Nuyttens")
+    print("This program comes with ABSOLUTELY NO WARRANTY.")
+    print("This is free software, and you are welcome to redistribute it under version 3 of the GNU General Public"
+          " License.")
+
+    ### LOAD GENERAL SETTINGS ###
+    #############################
+
+    locale.setlocale(locale.LC_ALL, "nl_BE.utf8")
+
+    # load configuration parameters
+    g_config = configparser.ConfigParser(allow_no_value=True, inline_comment_prefixes=";")
+    g_config.read('../../config.ini')
+
+
+
+    # date that acts as reference point for the calculation
+    ref_date = datetime(g_config.getint('PARAMETERS', 'year'), g_config.getint('PARAMETERS',
+                                                                               'month'), 1)
+
+    ### DATA RETRIEVAL FROM OFFICIENT API and CSV files###
+    ######################################################
+    main_functions.load_dataframes(ref_date, g_config)
+    main_functions.refresh_from_officient(g_config, ref_date)
+    main_functions.refresh_from_csv(g_config)
+
+    # manual update of calendar for another year, e.g. 2023, normally this should not be executed
+    #db_retrieve.employee_calendar_compose(2023)
+
+if __name__ == "__main__":
+    main()

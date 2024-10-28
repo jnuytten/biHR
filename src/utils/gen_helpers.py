@@ -75,7 +75,7 @@ def get_consultant_name(consultant_id: int) -> str:
     return name
 
 
-def create_sql_dump():
+def create_sql_dump(config: configparser.ConfigParser):
     # Get the current date to append to the filename
     date = datetime.now().strftime("%Y%m%d_%H%M%S")
     # load configuration parameters from .env file
@@ -84,8 +84,6 @@ def create_sql_dump():
     password = os.getenv('db_password')
     database = os.getenv('db_name')
     # load other configuration parameters
-    config = configparser.ConfigParser(allow_no_value=True, inline_comment_prefixes=";")
-    config.read('config.ini')
     dump_file_path = config.get('FILES', 'database_dumps')
     dump_file = f"{dump_file_path}/dump_{database}_{date}.sql"
 

@@ -126,15 +126,16 @@ def monthly_cost(contract_id: int, ref_date: datetime, contract_frame: pd.DataFr
     # include bonus if month is december
     if ref_date.month == 12:
         bonus = round(get_bonus(contract_id, ref_date, contract_frame, global_hr_values), 2)
-    # bezoldiging to calculate is the gross salary without the 'enkel vakantiegeld'
+    # bezoldiging to calculate is the gross salary without the 'enkel vakantiegeld', but for RSZ calculations we have to take into account the full gross salary
     bezoldiging = contract_frame.loc[contract_id, 'monthly_salary'] * company_paid_ratio * (1 - vacation_time_ratio)
+    bezoldiging_rsz_basis = contract_frame.loc[contract_id, 'monthly_salary'] * company_paid_ratio
     # create cost overview of the employee
     cost_overview = {
         'Medewerker': employee_name,
         'Bezoldiging': round(bezoldiging, 2),
         'Provisie vakantiegeld': round(bezoldiging * 0.182, 2),
         'Provisie eindejaarspremie': round(bezoldiging * (1 + global_hr_values.loc['HR401', 'waarde']) / 12, 2),
-        'RSZ werkgever': round(bezoldiging * global_hr_values.loc['HR401', 'waarde'], 2),
+        'RSZ werkgever': round(bezoldiging_rsz_basis * global_hr_values.loc['HR401', 'waarde'], 2),
         'Premie-PC200': pc200premie,
         'Bonus': bonus,
         'Nettovergoeding': round(get_net_allowance(contract_id, contract_frame, global_hr_values), 2),
@@ -174,7 +175,7 @@ def monthly_revenue(employee_id: int, ref_date: datetime) -> (float, float):
 
 
 def get_monthly_summary_data(ref_date: datetime) -> (pd.DataFrame, pd.DataFrame):
-    """Create two dataframe showing all different costs and incomes for all employees in a month
+    """Create two dataframes showing all different costs and incomes for all employees in a month
     These dataframe only include individual costs (salary package, ICT of individual employee, training,
     etc.) and income but do NOT include general company costs, management and administration cost
     """
@@ -277,7 +278,6 @@ def yearly_cost_income(config: configparser.ConfigParser, employee_id: int, ref_
         gh.logger(f"Contract for {employee_id} is starting or ending in year {ref_date.year}.")
 
     # todo: review all FTE logic whether it still makes sense!!!
-    # todo: FTE as set parameter here
     # calculate correction factor FTE, to take into the actual fte time that are paid hours
     company_paid_ratio, vacation_time_ratio = calculate_calendar.get_fte_ratios(
         employee_id,
@@ -299,19 +299,14 @@ def yearly_cost_income(config: configparser.ConfigParser, employee_id: int, ref_
     # get FTE correction factors
     actual_fte = contract_frame.loc[contract_id, 'fte'] * company_paid_ratio
 
-    # todo: dayrate, MSP fee as set parameter here
     # calculate yearly revenue
     project_id, project_start, project_end = calculate_project.get_consultant_project(employee_id, ref_date)
     dayrate, msp_fee = calculate_project.get_project_dayrate(project_id)
     yearly_revenue = yearly_billable_days * dayrate * (1 - msp_fee)
 
-    # todo: Maandloon as set parameter here
     # calculate gross salary
     bezoldiging = contract_frame.loc[contract_id, 'monthly_salary'] * company_paid_ratio
 
-    # todo: insert function here to calculate mobility cost if "Level"  or "Mobility" is a set parameter
-
-    # todo: modify function to get bonus if "Level" is a set parameter and modify function to get net allowance if "Mobility" is a set parameter
     # calculate full cost matrix
     cost_overview = {
         'Employee': employee_id,
