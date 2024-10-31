@@ -44,8 +44,6 @@ def refresh_from_officient(config: configparser.ConfigParser, ref_date: datetime
     """Refresh all data in SQL database from Officient API and input files"""
     # log main function execution
     print(f"-- Refreshing Officient data in SQL database")
-    # DEBUG
-    print(config.sections())
     # first create backup of the database
     gh.create_sql_dump(config)
     # update calendar and saldi for all employees in SQL

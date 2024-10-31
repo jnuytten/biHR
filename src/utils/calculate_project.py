@@ -33,8 +33,8 @@ def get_consultant_project(consultant_id: int, ref_date: datetime) -> (int, date
                     consultant_projects.loc[x, 'end_date'])
     gh.logger(f'No project found for employee {consultant_id} {gh.get_consultant_name(consultant_id)} in month '
           f'{ref_date.month}, setting project ID to 99999.')
-    # no project found, return impossible value
-    return 99999, datetime.now(), datetime.now()
+    # no project found, return impossible values
+    return 99999, datetime(2100, 1, 1), datetime(2100, 1, 1)
 
 
 def get_project_dayrate(project_id: int) -> (float, float):

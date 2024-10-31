@@ -163,12 +163,16 @@ def monthly_revenue(employee_id: int, ref_date: datetime) -> (float, float):
     """Calculate expected monthly employee revenue before and after substracting MSP fee, using calendar"""
     project_id, project_start, project_end = calculate_project.get_consultant_project(employee_id, ref_date)
     dayrate, msp_fee = calculate_project.get_project_dayrate(project_id)
+    if project_id == 99999:
+        gh.logger(f"No project found for employee {employee_id} in month {ref_date.month}, setting dayrate to 0.00.")
+        return 0.00, 0.00
     # define actual date range for reference period, from the first until the last of the month
     period_start = ref_date.replace(day=1)
     period_end = ref_date.replace(day=calendar.monthrange(ref_date.year, ref_date.month)[1])
     # calculate start and end for billable period, if project starts during the month this is correctly taken in account
     start_date = max(period_start, project_start)
-    end_date = min(period_end, project_end)
+    # make sure end date is not before start date
+    end_date = max(min(period_end, project_end), start_date)
     workhours = calculate_calendar.get_workhours(employee_id, start_date, end_date, True)
     revenue = workhours * (dayrate/8)
     return revenue, revenue * (1 - msp_fee)

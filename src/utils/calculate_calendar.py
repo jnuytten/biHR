@@ -22,7 +22,9 @@ def get_workhours(employee_id: int, start_date: datetime, end_date: datetime, bi
     """Get the number of workhours forecasted for a specific employee over a specified period.
     If argument billable is set then training_time is excluded from the calculation.
     Time that is returned is expressed in hours!"""
-    # get global dataframes with calendar and saldi
+    if end_date.year > start_date.year:
+        raise ValueError("Cannot forecast workhours with function get_workhours over multiple years")
+    # get global dataframe with calendar
     global_calendar = db_supply.global_calendar
     if global_calendar is None:
         raise ValueError("global_calendar cannot be accessed in function get_workhours")
@@ -44,31 +46,36 @@ def get_workhours(employee_id: int, start_date: datetime, end_date: datetime, bi
     # correct vacation_time for future months, based on saldi
     absence_forecast = 0
     if end_date > datetime.now():
+        # get global dataframe with saldi
         global_saldi = db_supply.global_saldi
         if global_saldi is None:
-            raise ValueError("global_saldi cannot be accessed in function get_fte_ratios")
+            raise ValueError("global_saldi cannot be accessed in function get_workhours")
         if billable:
             absence_minutes_left = global_saldi.loc[employee_id, ['training', 'vacation', 'holiday', 'adv',
                                                               'extralegal_vacation', 'sickness']].sum().sum()
         else:
             absence_minutes_left = global_saldi.loc[employee_id, ['vacation', 'holiday', 'adv', 'extralegal_vacation',
                                                                   'sickness']].sum().sum()
-        months_left_in_year = 12 - datetime.now().month
-        if months_left_in_year == 0:
-            months_left_in_year = 1
-        montly_absence_forecast = round(absence_minutes_left / months_left_in_year, 0)
-        # cannot forecast absence for future years
-        if end_date.year > datetime.now().year:
-            raise ValueError("Cannot forecast absence for future years")
+
         # if period ends in current month (which is not december), then no absence minutes are forecasted
-        elif end_date.month == datetime.now().month and end_date.month != 12:
+        if end_date.month == datetime.now().month and end_date.month != 12:
             absence_forecast = 0
         # else calculate forecasted absence for the period
         else:
-            # start reference period for absence forecast
-            start_ref = max(datetime.now().month, start_date.month)
-            end_ref = end_date.month
-            absence_forecast = (start_ref - end_ref + 1) * montly_absence_forecast
+            # calculate number of months left in the year and in the period for which we are calculating
+            months_left_in_year = 12 - datetime.now().month
+            months_left_in_period = end_date.month - max(datetime.now().month, start_date.month) + 1
+            # handle special cases to calculate months left
+            if start_date.year > datetime.now().year:
+                months_left_in_year = 12
+                months_left_in_period = end_date.month - start_date.month + 1
+            # in case we are in the last month of the year, we must consider all remaining days will be taken that month
+            if months_left_in_year == 0:
+                months_left_in_year = 1
+            # calculate expected absence per month
+            monthly_absence_forecast = round(absence_minutes_left / months_left_in_year, 0)
+            # calculate forecasted absence for the period
+            absence_forecast = months_left_in_period * monthly_absence_forecast
 
     # calculate and return work hours in calendar
     return round((scheduled_time - leave_time - absence_forecast) / 60, 2)
@@ -103,26 +110,30 @@ def get_fte_ratios(employee_id: int, start_date: datetime, end_date: datetime, u
     absence_forecast = 0
 
     if end_date > datetime.now():
+        # get global dataframe with saldi
         global_saldi = db_supply.global_saldi
         if global_saldi is None:
             raise ValueError("global_saldi cannot be accessed in function get_fte_ratios")
         absence_minutes_left = global_saldi.loc[employee_id, ['vacation']].sum()
-        months_left_in_year = 12 - datetime.now().month
-        if months_left_in_year == 0:
-            months_left_in_year = 1
-        montly_absence_forecast = round(absence_minutes_left / months_left_in_year, 0)
-        # cannot forecast absence for future years
-        if end_date.year > datetime.now().year:
-            raise ValueError("Cannot forecast absence for future years")
+
         # if period ends in current month (which is not december), then no absence minutes are forecasted
-        elif end_date.month == datetime.now().month and end_date.month != 12:
+        if end_date.month == datetime.now().month and end_date.month != 12:
             absence_forecast = 0
         # else calculate forecasted absence for the period
         else:
-            # start reference period for absence forecast
-            start_ref = max(datetime.now().month, start_date.month)
-            end_ref = end_date.month
-            absence_forecast = (start_ref - end_ref + 1) * montly_absence_forecast
+            # calculate number of months left in the year and in the period for which we are calculating
+            months_left_in_year = 12 - datetime.now().month
+            months_left_in_period = end_date.month - max(datetime.now().month, start_date.month) + 1
+            # handle special cases to calculate months left
+            if start_date.year > datetime.now().year:
+                months_left_in_year = 12
+                months_left_in_period = end_date.month - start_date.month + 1
+            if months_left_in_year == 0:
+                months_left_in_year = 1
+            # calculate expected absence per month
+            monthly_absence_forecast = round(absence_minutes_left / months_left_in_year, 0)
+            # calculate forecasted absence for the period
+            absence_forecast = months_left_in_period * monthly_absence_forecast
 
     vacation_time = round(vacation_time + absence_forecast, 0)
 
