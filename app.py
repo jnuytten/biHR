@@ -20,7 +20,6 @@
 import dash
 from dash import Dash, dcc, html
 import locale
-from src.utils import config
 from src.utils import calculate_employee, main_functions
 
 print("biHR Copyright (C) 2024 Joachim Nuyttens")

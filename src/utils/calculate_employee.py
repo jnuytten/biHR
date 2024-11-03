@@ -129,8 +129,10 @@ def monthly_cost(contract_id: int, ref_date: datetime, contract_frame: pd.DataFr
     if ref_date.month == 12:
         bonus = round(get_bonus(contract_id, contract_frame, global_hr_values), 2)
     # bezoldiging to calculate is the gross salary without the 'enkel vakantiegeld', but for RSZ calculations we have to take into account the full gross salary
-    bezoldiging = contract_frame.loc[contract_id, 'monthly_salary'] * company_paid_ratio * (1 - vacation_time_ratio)
-    bezoldiging_rsz_basis = contract_frame.loc[contract_id, 'monthly_salary'] * company_paid_ratio
+    bezoldiging = (contract_frame.loc[contract_id, 'monthly_salary'] * company_paid_ratio * (1 - vacation_time_ratio)
+                   * config.g_config.getfloat('PARAMETERS', 'inflator'))
+    bezoldiging_rsz_basis = (contract_frame.loc[contract_id, 'monthly_salary'] * company_paid_ratio
+                             * config.g_config.getfloat('PARAMETERS', 'inflator'))
     # create cost overview of the employee
     cost_overview = {
         'Medewerker': employee_name,
@@ -312,7 +314,8 @@ def yearly_cost_income(employee_id: int, real_calendar: bool = False) -> (pd.Dat
     yearly_revenue = yearly_billable_days * dayrate * (1 - msp_fee)
 
     # calculate gross salary
-    bezoldiging = contract_frame.loc[contract_id, 'monthly_salary'] * company_paid_ratio
+    bezoldiging = (contract_frame.loc[contract_id, 'monthly_salary'] * company_paid_ratio
+                   * config.g_config.getfloat('PARAMETERS', 'inflator'))
 
     # calculate full cost matrix
     cost_overview = {
@@ -324,8 +327,7 @@ def yearly_cost_income(employee_id: int, real_calendar: bool = False) -> (pd.Dat
         'Eindejaarspremie': round(bezoldiging * (1 + global_hr_values.loc['HR401', 'waarde']), 2),
         'Premie-PC200': round(get_pc200_premium(employee_id, global_hr_values), 2),
         'Bonus': round(get_bonus(contract_id, contract_frame, global_hr_values), 2),
-        'Dubbel vakantiegeld': round(get_vakantiegeld(contract_frame.loc[contract_id, 'monthly_salary'], 1)
-                                     * company_paid_ratio, 2),
+        'Dubbel vakantiegeld': round(get_vakantiegeld(bezoldiging, 1), 2),
         'Nettovergoeding': round(get_net_allowance(contract_id, contract_frame, global_hr_values) * 12, 2),
         'ECO-cheques': round(get_eco_cheques(employee_id, global_hr_values), 2),
         'Hospitalisatieverz.': round(global_hr_values.loc['HR041', 'waarde'] * 1.25, 2),
@@ -351,7 +353,8 @@ def yearly_cost_income(employee_id: int, real_calendar: bool = False) -> (pd.Dat
         'Employee': employee_id,
         'Level': contract_frame.loc[contract_id, 'function_category'],
         'Mobility': contract_frame.loc[contract_id, 'mobility_type'],
-        'Maandloon': contract_frame.loc[contract_id, 'monthly_salary'],
+        'Maandloon': contract_frame.loc[contract_id, 'monthly_salary']
+                     * config.g_config.getfloat('PARAMETERS', 'inflator'),
         'FTE': actual_fte,
         'Billable dagen': yearly_billable_days,
         'Dayrate': dayrate,

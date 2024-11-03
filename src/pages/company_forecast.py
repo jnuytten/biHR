@@ -19,16 +19,14 @@ from dash import dcc, html, dash_table, callback, Input, Output
 import configparser
 import pandas as pd
 from datetime import datetime
-from src.utils import main_functions
+from src.utils import config, main_functions
 
 dash.register_page(__name__, path='/')
 
 # load configuration parameters
-g_config = configparser.ConfigParser(allow_no_value=True, inline_comment_prefixes=";")
-g_config.read('config.ini')
+g_config = config.g_config
 
-ref_date = datetime(g_config.getint('PARAMETERS', 'year'), g_config.getint('PARAMETERS',
-                                                                           'month'), 1)
+ref_date = config.g_ref_date
 company_forecast, monthly_employee_data, monthly_freelance_data = main_functions.company_year_forecast()
 # reset index so that it is displayed in the table
 company_forecast.reset_index(inplace=True)
