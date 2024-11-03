@@ -18,7 +18,7 @@ import configparser
 import pandas as pd
 from typing import Dict
 from datetime import datetime
-from src.utils import calculate_calendar, officient_api_queries, db_supply, gen_helpers as gh
+from src.utils import calculate_calendar, officient_api_queries, db_supply, config, gen_helpers as gh
 
 
 def employee_list_get() -> pd.DataFrame:
@@ -198,7 +198,7 @@ def employee_calendar_compose(year: int):
         employee_calendar_insert(calendar, i)
 
 
-def employee_saldi_get(employee_id: int, year: int, config: configparser.ConfigParser) -> Dict:
+def employee_saldi_get(employee_id: int, year: int) -> Dict:
     """Get JSON object from Officient API with all saldi and get year saldi, then correct by saldi already taken from
     SQL database. All times are expressed in minutes!"""
     # retrieve year limits of employee for year from Officient API
@@ -214,8 +214,8 @@ def employee_saldi_get(employee_id: int, year: int, config: configparser.ConfigP
             elif item['limitation'] == 'limit_in_days':
                 year_limits[item['name']] = item['max_yearly_amount_days'] * 8 * 60
     # for sickness and training days, retrieve from config the historical average values
-    year_limits['Ziekte'] = config.getint('PARAMETERS', 'yearly_sick_days') * 8 * 60
-    year_limits['Training'] = config.getint('PARAMETERS', 'yearly_training_days') * 8 * 60
+    year_limits['Ziekte'] = config.g_config.getint('PARAMETERS', 'yearly_sick_days') * 8 * 60
+    year_limits['Training'] = config.g_config.getint('PARAMETERS', 'yearly_training_days') * 8 * 60
     # get employee calendar for this year from SQL
     calendar = db_supply.employee_calendar_get(employee_id, year)
     # calculate remaining saldi of the year by substracting from year limits the days already used (as in calendar)
@@ -259,12 +259,12 @@ def employee_saldi_db_exec(saldi_dict: Dict):
             conn.commit()
 
 
-def employee_saldi_compose(year: int, config: configparser.ConfigParser):
+def employee_saldi_compose(year: int):
     """Compose a unified list of all employee absence saldi"""
     # loop over employees
     worker_list = db_supply.worker_list_get('intern')
     for i in worker_list.index.tolist():
-        saldi_line = employee_saldi_get(i, year, config)
+        saldi_line = employee_saldi_get(i, year)
         # insert into SQL
         employee_saldi_db_exec(saldi_line)
 

@@ -18,6 +18,7 @@ import mysql.connector
 import subprocess
 import configparser
 import os
+from src.utils import config
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -75,7 +76,7 @@ def get_consultant_name(consultant_id: int) -> str:
     return name
 
 
-def create_sql_dump(config: configparser.ConfigParser):
+def create_sql_dump():
     # Get the current date to append to the filename
     date = datetime.now().strftime("%Y%m%d_%H%M%S")
     # load configuration parameters from .env file
@@ -84,7 +85,7 @@ def create_sql_dump(config: configparser.ConfigParser):
     password = os.getenv('db_password')
     database = os.getenv('db_name')
     # load other configuration parameters
-    dump_file_path = config.get('FILES', 'database_dumps')
+    dump_file_path = config.g_config.get('FILES', 'database_dumps')
     dump_file = f"{dump_file_path}/dump_{database}_{date}.sql"
 
     try:

@@ -15,7 +15,7 @@
 #
 import pandas as pd
 from datetime import datetime
-from src.utils import db_supply, calculate_project
+from src.utils import db_supply, config, calculate_project
 
 
 def monthly_project_revenue(project_id: int, workdays: float) -> (float, float):
@@ -80,8 +80,9 @@ def monthly_summary(ref_date: datetime) -> pd.DataFrame:
     return project_frame
 
 
-def get_year_of_monthly_summaries(ref_date: datetime):
+def get_year_of_monthly_summaries():
     """Get all monthly freelance summaries, starting with current month of ref_date, for the whole year"""
+    ref_date = config.g_ref_date
     # create dictionary to store the monthly employee summaries
     monthly_freelance_summaries = {}
     # loop over all months of the year, starting from the current month

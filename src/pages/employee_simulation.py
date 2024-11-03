@@ -24,7 +24,7 @@ from src.utils import calculate_employee, db_supply
 dash.register_page(__name__, path='/employee_simulation')
 
 def get_employee_data(employee_id):
-    cost_overview, yearly_revenue, parameters = calculate_employee.yearly_cost_income(g_config, employee_id, ref_date)
+    cost_overview, yearly_revenue, parameters = calculate_employee.yearly_cost_income(employee_id)
     # calculate yearly cost and margin
     yearly_cost = float(cost_overview.sum().sum())
     yearly_gross_margin = yearly_revenue - yearly_cost

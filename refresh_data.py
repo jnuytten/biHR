@@ -18,6 +18,7 @@
 import configparser
 import locale
 from datetime import datetime
+from src.utils import config
 from src.utils import main_functions
 
 
@@ -32,21 +33,11 @@ def main():
 
     locale.setlocale(locale.LC_ALL, "nl_BE.utf8")
 
-    # load configuration parameters
-    g_config = configparser.ConfigParser(allow_no_value=True, inline_comment_prefixes=";")
-    g_config.read('../../config.ini')
-
-
-
-    # date that acts as reference point for the calculation
-    ref_date = datetime(g_config.getint('PARAMETERS', 'year'), g_config.getint('PARAMETERS',
-                                                                               'month'), 1)
-
     ### DATA RETRIEVAL FROM OFFICIENT API and CSV files###
     ######################################################
-    main_functions.load_dataframes(ref_date, g_config)
-    main_functions.refresh_from_officient(g_config, ref_date)
-    main_functions.refresh_from_csv(g_config)
+    main_functions.load_dataframes()
+    main_functions.refresh_from_officient()
+    main_functions.refresh_from_csv()
 
     # manual update of calendar for another year, e.g. 2023, normally this should not be executed
     #db_retrieve.employee_calendar_compose(2023)

@@ -29,7 +29,7 @@ g_config.read('config.ini')
 
 ref_date = datetime(g_config.getint('PARAMETERS', 'year'), g_config.getint('PARAMETERS',
                                                                            'month'), 1)
-company_forecast, monthly_employee_data, monthly_freelance_data = main_functions.company_year_forecast(g_config, ref_date)
+company_forecast, monthly_employee_data, monthly_freelance_data = main_functions.company_year_forecast()
 # reset index so that it is displayed in the table
 company_forecast.reset_index(inplace=True)
 

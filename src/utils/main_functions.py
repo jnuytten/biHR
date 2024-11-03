@@ -19,11 +19,13 @@ import configparser
 import pandas as pd
 import json
 from src.utils import calculate_freelance, calculate_calendar, calculate_employee, db_retrieve, db_supply, \
-    gen_helpers as gh
+    config, gen_helpers as gh
+from src.utils.config import g_config
 
 
-def load_dataframes(ref_date: datetime, config: configparser.ConfigParser):
+def load_dataframes():
     """Load all global dataframes with data from SQL database"""
+    ref_date = config.g_ref_date
     global global_calendar
     global global_saldi
     global global_projects
@@ -36,45 +38,45 @@ def load_dataframes(ref_date: datetime, config: configparser.ConfigParser):
     global_saldi = db_supply.saldi_get()
     global_projects = db_supply.projects_get()
     global_freelance_contracts = db_supply.freelance_contracts_get()
-    global_hr_values = db_supply.hr_values_get(config)
+    global_hr_values = db_supply.hr_values_get()
     global_workdays = calculate_calendar.build_workday_calendar(ref_date.year)
 
 
-def refresh_from_officient(config: configparser.ConfigParser, ref_date: datetime):
+def refresh_from_officient():
     """Refresh all data in SQL database from Officient API and input files"""
+    ref_date = config.g_ref_date
     # log main function execution
     print(f"-- Refreshing Officient data in SQL database")
     # first create backup of the database
-    gh.create_sql_dump(config)
+    gh.create_sql_dump()
     # update calendar and saldi for all employees in SQL
     db_retrieve.employee_calendar_compose(ref_date.year)
-    db_retrieve.employee_saldi_compose(ref_date.year, config)
+    db_retrieve.employee_saldi_compose(ref_date.year)
     # compose a list of all employee contracts and insert into SQL
     db_retrieve.employee_contract_compose()
 
 
-def refresh_from_csv(config: configparser.ConfigParser):
+def refresh_from_csv():
     """Refresh all data in SQL database from Officient API and input files"""
     # log main function execution
     print(f"-- Refreshing CSV data in SQL database")
-    # DEBUG
-    print(config.sections())
     # compose list of employees and freelancers, and input into SQL
-    db_retrieve.workers_list_compose(config.get('FILES', 'freelancers'))
+    db_retrieve.workers_list_compose(config.g_config.get('FILES', 'freelancers'))
     # compose a list of freelance contracts and a list of projects into SQL
-    db_retrieve.project_list_compose(config.get('FILES', 'projects'))
+    db_retrieve.project_list_compose(config.g_config.get('FILES', 'projects'))
 
 
-def company_year_forecast(config: configparser.ConfigParser, ref_date: datetime):
+def company_year_forecast():
     """Calculate the forecast of the year for the whole company and generate a dataframe summarizing this."""
+    ref_date = config.g_ref_date
     # log main function execution
     print(f"-- Calculating yearly forecast for company for {ref_date.year}")
     # get global hr values and global freelance contracts
     global_hr_values = db_supply.global_hr_values
     # get monthly summaries of employee data
-    monthly_employee_data = calculate_employee.get_year_of_monthly_summaries(config, ref_date)
+    monthly_employee_data = calculate_employee.get_year_of_monthly_summaries()
     # get monthly summaries of freelancer data
-    monthly_freelance_data = calculate_freelance.get_year_of_monthly_summaries(ref_date)
+    monthly_freelance_data = calculate_freelance.get_year_of_monthly_summaries()
     # define dictionary to store monthly summary data for the year overview
     year_data = {}
     # loop over monthly summaries and calculate company-wide forecast
@@ -130,16 +132,12 @@ def company_year_forecast(config: configparser.ConfigParser, ref_date: datetime)
     return overview_frame, monthly_employee_data, monthly_freelance_data
 
 
-def employee_month_forecast(config: configparser.ConfigParser, ref_date: datetime):
+def employee_month_forecast(ref_date: datetime) -> pd.DataFrame:
     """Calculate the forecasted month for all employees based on the data in the SQL database
-    This provides the most detailed view on the split of costs for the employees."""
+    This provides the most detailed view on the split of costs for the employees.
+    The resulting dataframe does NOT include the management, administration and general company costs."""
     # log main function execution
     print(f"-- Calculating monthly forecast for employees for {gh.get_month_name(ref_date.month)} {ref_date.year}")
-    # get location of output directory
-    output_dir = config.get('PARAMETERS', 'outputdir')
-    # load hr values and ignore list
-    global_hr_values = db_supply.global_hr_values
-    ignore_list = json.loads(config.get('PARAMETERS', 'ignore_list'))
     # load employee dataframes
     cost_frame, revenue_frame = calculate_employee.get_monthly_summary_data(ref_date)
     # calculate total costs on individual basis, only the column "enkel vakantiegeld" is not included in the total cost
@@ -149,30 +147,15 @@ def employee_month_forecast(config: configparser.ConfigParser, ref_date: datetim
                         'Verzekering AO', 'Mobiliteitskost', 'Opleiding', 'Attenties en activiteiten', 'Preventie',
                         'ICT']
     cost_frame['Individuele kost'] = cost_frame[costs_to_include].sum(axis=1)
-    # add management cost, administrative cost and general cost to the dataframes
-    cost_frame['Management tijd'] = round(global_hr_values.loc['HR080', 'waarde'] / 12, 2)
-    cost_frame['Administratie'] = round(global_hr_values.loc['HR081', 'waarde'] / 12, 2)
-    cost_frame['Algemene kosten'] = round(global_hr_values.loc['HR200', 'waarde'] / 12, 2)
-    # calculate total cost including company expenses
-    cost_frame['Totaal kost'] = cost_frame[
-        ['Individuele kost', 'Management tijd', 'Administratie', 'Algemene kosten']].sum(axis=1)
     # add "Inkomsten na MSP" from revenue frame to cost frame
     cost_frame['Omzet'] = round(revenue_frame['Inkomsten na MSP'], 2)
-    # calculate gross margin
-    cost_frame['Bruto marge'] = round(cost_frame['Omzet'] - cost_frame['Totaal kost'], 2)
-    # calculate relative margin
-    cost_frame['Relatieve marge'] = round(100 * cost_frame['Bruto marge'] / cost_frame['Omzet'], 2)
-
-    # change relative margin to percentage
-    cost_frame['Relatieve marge'] = cost_frame['Relatieve marge'].astype(str) + '%'
-
-    # drop employees in ignore list
-    try:
-        cost_frame.drop(ignore_list, inplace=True)
-    except KeyError:
-        print("Some employees in Ignorelist were not found in employee cost overview, please correct this.")
-
     # sort dataframe by index
     cost_frame.sort_index(inplace=True)
+    # calculate totals
+    employee_sum = cost_frame.sum().round(2)
+    employee_sum_series = pd.Series(employee_sum, name='Totaal')
+    cost_frame = pd.concat([cost_frame, employee_sum_series.to_frame().T])
+    # reset index so that it is displayed in the table
+    cost_frame.reset_index(inplace=True)
 
     return cost_frame

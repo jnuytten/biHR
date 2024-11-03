@@ -16,26 +16,19 @@
 
 import dash
 from dash import dcc, html, dash_table, callback, Input, Output
-import configparser
-import pandas as pd
-from datetime import datetime
+from src.utils import config
 from src.utils import main_functions
 
 dash.register_page(__name__, path='/employee_monthly_cost')
 
 # load configuration parameters
-g_config = configparser.ConfigParser(allow_no_value=True, inline_comment_prefixes=";")
-g_config.read('config.ini')
+#g_config = configparser.ConfigParser(allow_no_value=True, inline_comment_prefixes=";")
+#g_config.read('config.ini')
 
-ref_date = datetime(g_config.getint('PARAMETERS', 'year'), g_config.getint('PARAMETERS',
-                                                                           'month'), 1)
-employee_monthly_cost = main_functions.employee_month_forecast(g_config, ref_date)
-employee_sum = employee_monthly_cost.sum().round(2)
-employee_sum_series = pd.Series(employee_sum, name='Totaal')
-employee_monthly_cost = pd.concat([employee_monthly_cost, employee_sum_series.to_frame().T])
-# reset index so that it is displayed in the table
-employee_monthly_cost.reset_index(inplace=True)
+#ref_date = datetime(g_config.getint('PARAMETERS', 'year'), g_config.getint('PARAMETERS',
+#                                                                           'month'), 1)
 
+employee_monthly_cost = main_functions.employee_month_forecast(config.g_ref_date)
 
 # layout of the page
 layout = html.Div([

@@ -18,12 +18,12 @@ from datetime import datetime
 import configparser
 import json
 import calendar
-from src.utils import calculate_calendar, db_supply, calculate_project, gen_helpers as gh
+from src.utils import calculate_calendar, config, db_supply, calculate_project, gen_helpers as gh
 
 
-def get_bonus(contract_id: int, ref_date: datetime, contract_frame: pd.DataFrame, hr_values: pd.DataFrame)\
-        -> float:
+def get_bonus(contract_id: int, contract_frame: pd.DataFrame, hr_values: pd.DataFrame) -> float:
     """Retrieve the bonus amount for employee with specified contract"""
+    ref_date = config.g_ref_date
     # get number of bonus workdays from calendar
     reference_period_start = ref_date.replace(year=ref_date.year - 1, month=12, day=1)
     reference_period_end = ref_date.replace(month=11, day=30)
@@ -43,8 +43,9 @@ def get_bonus(contract_id: int, ref_date: datetime, contract_frame: pd.DataFrame
         return 0
 
 
-def get_eco_cheques(employee_id: int, ref_date: datetime, hr_values: pd.DataFrame) -> float:
+def get_eco_cheques(employee_id: int, hr_values: pd.DataFrame) -> float:
     """Retrieve the ECO cheques amount for an employee"""
+    ref_date = config.g_ref_date
     # calculate pro-rata factor based on reference period
     reference_period_start = ref_date.replace(year=ref_date.year - 1, month=6, day=1)
     reference_period_end = ref_date.replace(month=5, day=31)
@@ -55,8 +56,9 @@ def get_eco_cheques(employee_id: int, ref_date: datetime, hr_values: pd.DataFram
     return hr_values.loc['HR011', 'waarde'] * hr_values.loc['HR013', 'waarde'] * company_paid_ratio
 
 
-def get_pc200_premium(employee_id: int, ref_date: datetime, hr_values: pd.DataFrame) -> float:
+def get_pc200_premium(employee_id: int, hr_values: pd.DataFrame) -> float:
     """Retrieve the PC200 premium amount for an employee"""
+    ref_date = config.g_ref_date
     # calculate pro-rata factor based on reference period
     reference_period_start = ref_date.replace(year=ref_date.year - 1, month=6, day=1)
     reference_period_end = ref_date.replace(month=5, day=31)
@@ -86,8 +88,8 @@ def get_net_allowance(contract_id: int, contract_frame: pd.DataFrame, hr_values:
         return hr_values.loc['HR031', 'waarde']
 
 
-def monthly_cost(contract_id: int, ref_date: datetime, contract_frame: pd.DataFrame,
-                 worker_list: pd.DataFrame, monthly_revenue: float) -> dict:
+def monthly_cost(contract_id: int, ref_date: datetime, contract_frame: pd.DataFrame, worker_list: pd.DataFrame,
+                 monthly_revenue: float) -> dict:
     """Retrieve and calculate monthly salary cost for employee contract with specified id
     This function does not yield a proper result on employee level but is only to be used on the company level. It does
     NOT include general company costs (e.g. accounting), management and administration cost
@@ -119,13 +121,13 @@ def monthly_cost(contract_id: int, ref_date: datetime, contract_frame: pd.DataFr
     pc200premie = 0
     # include ECO cheques if month is may
     if ref_date.month == 5:
-        ecocheque = round(get_eco_cheques(employee_id, ref_date, global_hr_values), 2)
+        ecocheque = round(get_eco_cheques(employee_id, global_hr_values), 2)
     # include PC200 premie if month is june
     if ref_date.month == 6:
-        pc200premie = round(get_pc200_premium(employee_id, ref_date, global_hr_values), 2)
+        pc200premie = round(get_pc200_premium(employee_id, global_hr_values), 2)
     # include bonus if month is december
     if ref_date.month == 12:
-        bonus = round(get_bonus(contract_id, ref_date, contract_frame, global_hr_values), 2)
+        bonus = round(get_bonus(contract_id, contract_frame, global_hr_values), 2)
     # bezoldiging to calculate is the gross salary without the 'enkel vakantiegeld', but for RSZ calculations we have to take into account the full gross salary
     bezoldiging = contract_frame.loc[contract_id, 'monthly_salary'] * company_paid_ratio * (1 - vacation_time_ratio)
     bezoldiging_rsz_basis = contract_frame.loc[contract_id, 'monthly_salary'] * company_paid_ratio
@@ -201,8 +203,9 @@ def get_monthly_summary_data(ref_date: datetime) -> (pd.DataFrame, pd.DataFrame)
             pd.DataFrame.from_records(revenue_list).set_index(['Medewerker']))
 
 
-def monthly_summary(cost_overview: pd.DataFrame, revenue_overview: pd.DataFrame, ignore_list: list,) -> pd.DataFrame:
+def monthly_summary(cost_overview: pd.DataFrame, revenue_overview: pd.DataFrame) -> pd.DataFrame:
     """Create summary dataframe showing employee cost, income and margin for month or year"""
+    ignore_list = json.loads(config.g_config.get('PARAMETERS', 'ignore_list'))
     overview = []
     # list of columns from the cost_overview dataframe that we want to include in the summary
     costs_to_include = ['Bezoldiging', 'Provisie vakantiegeld', 'Provisie eindejaarspremie', 'RSZ werkgever',
@@ -230,9 +233,9 @@ def monthly_summary(cost_overview: pd.DataFrame, revenue_overview: pd.DataFrame,
     return overview_frame
 
 
-def get_year_of_monthly_summaries(config: configparser.ConfigParser, ref_date: datetime):
+def get_year_of_monthly_summaries():
     """Get all monthly employee summaries, starting with current month of ref_date, for the whole year"""
-    ignore_list = json.loads(config.get('PARAMETERS', 'ignore_list'))
+    ref_date = config.g_ref_date
     # create dictionary to store the monthly employee summaries
     monthly_employee_summaries = {}
     # loop over all months of the year, starting from the current month
@@ -240,7 +243,7 @@ def get_year_of_monthly_summaries(config: configparser.ConfigParser, ref_date: d
         month_date = datetime(ref_date.year, month, 1)
         monthly_cost, monthly_income = get_monthly_summary_data(month_date)
         # get summarized employee data for the month, and append to dictionary
-        monthly_employee_summaries[month] = monthly_summary(monthly_cost, monthly_income, ignore_list)
+        monthly_employee_summaries[month] = monthly_summary(monthly_cost, monthly_income)
     return monthly_employee_summaries
 
 
@@ -261,8 +264,7 @@ def evaluate_contract_start_end(contract_id: int, contract_frame: pd.DataFrame, 
     return start_window <= start_date <= end_window or start_window <= end_date <= end_window
 
 
-def yearly_cost_income(config: configparser.ConfigParser, employee_id: int, ref_date: datetime,
-                       real_calendar: bool = False) -> (pd.DataFrame, float, pd.DataFrame):
+def yearly_cost_income(employee_id: int, real_calendar: bool = False) -> (pd.DataFrame, float, pd.DataFrame):
     """Simulates yearly cost, income and margin for a single employee. This function looks at the project and
     employment situation on ref_date and assumes this situation is constant for the whole year. The calculations are the
     same as those done by the loonberekening Excel file
@@ -270,6 +272,7 @@ def yearly_cost_income(config: configparser.ConfigParser, employee_id: int, ref_
     configured "average" billable days are used
     Function returns the calculation results as well as the parameters for display by a html parsing function.
     """
+    ref_date = config.g_ref_date
     # get global hr values
     global_hr_values = db_supply.global_hr_values
     # get contract data
@@ -295,7 +298,7 @@ def yearly_cost_income(config: configparser.ConfigParser, employee_id: int, ref_
         yearly_billable_days = calculate_calendar.get_workhours(employee_id, ref_date.replace(month=1, day=1),
                                                                 ref_date.replace(month=12, day=31), True) / 8
     else:
-        yearly_billable_days = (int(config.get('PARAMETERS', 'yearly_workdays')) *
+        yearly_billable_days = (int(config.g_config.get('PARAMETERS', 'yearly_workdays')) *
                                 contract_frame.loc[contract_id, 'fte'] * company_paid_ratio)
         # to stay aligned with tool in Excel we simplify by assuming workdays equals billable days
         yearly_workdays = yearly_billable_days
@@ -319,12 +322,12 @@ def yearly_cost_income(config: configparser.ConfigParser, employee_id: int, ref_
                                   yearly_workdays), 2),
         'RSZ werkgever': round(bezoldiging * 12 * global_hr_values.loc['HR401', 'waarde'], 2),
         'Eindejaarspremie': round(bezoldiging * (1 + global_hr_values.loc['HR401', 'waarde']), 2),
-        'Premie-PC200': round(get_pc200_premium(employee_id, ref_date, global_hr_values), 2),
-        'Bonus': round(get_bonus(contract_id, ref_date, contract_frame, global_hr_values), 2),
+        'Premie-PC200': round(get_pc200_premium(employee_id, global_hr_values), 2),
+        'Bonus': round(get_bonus(contract_id, contract_frame, global_hr_values), 2),
         'Dubbel vakantiegeld': round(get_vakantiegeld(contract_frame.loc[contract_id, 'monthly_salary'], 1)
                                      * company_paid_ratio, 2),
         'Nettovergoeding': round(get_net_allowance(contract_id, contract_frame, global_hr_values) * 12, 2),
-        'ECO-cheques': round(get_eco_cheques(employee_id, ref_date, global_hr_values), 2),
+        'ECO-cheques': round(get_eco_cheques(employee_id, global_hr_values), 2),
         'Hospitalisatieverz.': round(global_hr_values.loc['HR041', 'waarde'] * 1.25, 2),
         'Groepsverz.': round(global_hr_values.loc['HR113', 'waarde'] * contract_frame.loc[contract_id, 'fte'] *
                              company_paid_ratio, 2),

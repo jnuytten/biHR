@@ -18,7 +18,7 @@ import configparser
 
 import pandas as pd
 from datetime import datetime
-from src.utils import gen_helpers as gh
+from src.utils import config, gen_helpers as gh
 
 
 def worker_list_get(scope: str = "all", ref_date: datetime = False) -> pd.DataFrame:
@@ -177,8 +177,8 @@ def freelance_contracts_get():
     global_freelance_contracts.set_index('id', inplace=True)
 
 
-def hr_values_get(config: configparser.ConfigParser):
+def hr_values_get():
     """Get DataFrame with hr values"""
     global global_hr_values
-    global_hr_values = pd.read_csv(config.get('FILES', 'hrvalues'), decimal=',', sep=';')
+    global_hr_values = pd.read_csv(config.g_config.get('FILES', 'hrvalues'), decimal=',', sep=';')
     global_hr_values = global_hr_values.set_index(['Code'])

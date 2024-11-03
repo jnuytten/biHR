@@ -18,10 +18,9 @@
 #
 
 import dash
-from dash import Dash, dcc, html, Input, Output
+from dash import Dash, dcc, html
 import locale
-import configparser
-from datetime import datetime
+from src.utils import config
 from src.utils import calculate_employee, main_functions
 
 print("biHR Copyright (C) 2024 Joachim Nuyttens")
@@ -34,29 +33,15 @@ print("This is free software, and you are welcome to redistribute it under versi
 
 locale.setlocale(locale.LC_ALL, "nl_BE.utf8")
 
-# load configuration parameters
-g_config = configparser.ConfigParser(allow_no_value=True, inline_comment_prefixes=";")
-g_config.read('config.ini')
-
-# date that acts as reference point for the calculation
-ref_date = datetime(g_config.getint('PARAMETERS', 'year'), g_config.getint('PARAMETERS',
-                                                                           'month'), 1)
-
 ## LOAD ESSENTIAL DATA ##
 ###############################
 # load all global dataframes with data from SQL database
-main_functions.load_dataframes(ref_date, g_config)
+main_functions.load_dataframes()
 
 ### INITIALIZE DASH APP ###
 ###########################
 
 app = Dash(__name__, use_pages=True, pages_folder='src/pages')
-
-cost_frame, revenue_frame = calculate_employee.get_monthly_summary_data(ref_date)
-global_dataframes = {
-    'cost_frame': cost_frame,
-    'revenue_frame': revenue_frame
-}
 
 if __name__ == '__main__':
     app.run(debug=True)
