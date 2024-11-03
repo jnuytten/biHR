@@ -18,11 +18,16 @@
 #
 
 import dash
-from dash import dcc, html, Input, Output
+from dash import Dash, dcc, html, Input, Output
 import locale
 import configparser
 from datetime import datetime
 from src.utils import calculate_employee, main_functions
+
+print("biHR Copyright (C) 2024 Joachim Nuyttens")
+print("This program comes with ABSOLUTELY NO WARRANTY.")
+print("This is free software, and you are welcome to redistribute it under version 3 of the GNU General Public"
+      " License.")
 
 ### LOAD GENERAL SETTINGS ###
 #############################
@@ -45,7 +50,7 @@ main_functions.load_dataframes(ref_date, g_config)
 ### INITIALIZE DASH APP ###
 ###########################
 
-app = dash.Dash(__name__, suppress_callback_exceptions=True)
+app = Dash(__name__, use_pages=True, pages_folder='src/pages')
 
 cost_frame, revenue_frame = calculate_employee.get_monthly_summary_data(ref_date)
 global_dataframes = {
@@ -53,24 +58,16 @@ global_dataframes = {
     'revenue_frame': revenue_frame
 }
 
+if __name__ == '__main__':
+    app.run(debug=True)
+
 app.layout = html.Div([
-    dcc.Location(id='url', refresh=False),
-    html.Div(id='page-content')
+    html.H1('Multi-page app with Dash Pages'),
+    html.Div([
+        html.Div(
+            dcc.Link(f"{page['name']} - {page['path']}", href=page["relative_path"])
+        ) for page in dash.page_registry.values()
+    ]),
+    dash.page_container
 ])
 
-@app.callback(Output('page-content', 'children'),
-              [Input('url', 'pathname')])
-
-def display_page(pathname):
-    if pathname == '/company_forecast':
-        from src.pages import company_forecast
-        return company_forecast.layout
-    elif pathname == '/employee_simulation':
-        from src.pages import employee_simulation
-        employee_simulation.register_callbacks(app)
-        return employee_simulation.layout
-    else:
-        return '404'
-
-if __name__ == '__main__':
-    app.run_server(debug=True)

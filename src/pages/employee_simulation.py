@@ -14,11 +14,14 @@
 # This file contains structure and functions to display the employee simulation page.
 #
 
+import dash
 from dash import dcc, html, dash_table, Input, Output, callback
 import pandas as pd
 import configparser
 from datetime import datetime
 from src.utils import calculate_employee, db_supply
+
+dash.register_page(__name__, path='/employee_simulation')
 
 def get_employee_data(employee_id):
     cost_overview, yearly_revenue, parameters = calculate_employee.yearly_cost_income(g_config, employee_id, ref_date)
@@ -83,21 +86,19 @@ layout = html.Div([
     )
 ])
 
-def register_callbacks(app):
-    @app.callback(
-        [Output('employee-info', 'children'),
-         Output('table-parameters', 'data'),
-         Output('table-cost_overview', 'data'),
-         Output('table-summary', 'data')],
-        Input('employee-dropdown', 'value')
+@callback(
+    [Output('employee-info', 'children'),
+     Output('table-parameters', 'data'),
+     Output('table-cost_overview', 'data'),
+     Output('table-summary', 'data')],
+    Input('employee-dropdown', 'value')
     )
-    def update_employee_info(selected_employee_id):
-        if selected_employee_id is None:
-            print("No employee ID selected")  # Debug statement
-            return ("No employee selected", [], [], "No revenue data")
-        cost_overview_transposed, summary, parameters = get_employee_data(selected_employee_id)
-        return (f"Simulatie wordt getoond voor werknemer {selected_employee_id}",
-                parameters.to_dict('records'),
-                cost_overview_transposed.to_dict('records'),
-                summary.to_dict('records')
-                )
+def update_employee_info(selected_employee_id):
+    if selected_employee_id is None:
+        return ("No employee selected", [], [], "No revenue data")
+    cost_overview_transposed, summary, parameters = get_employee_data(selected_employee_id)
+    return (f"Simulatie wordt getoond voor werknemer {selected_employee_id}",
+            parameters.to_dict('records'),
+            cost_overview_transposed.to_dict('records'),
+            summary.to_dict('records')
+            )

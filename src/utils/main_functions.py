@@ -19,7 +19,7 @@ import configparser
 import pandas as pd
 import json
 from src.utils import calculate_freelance, calculate_calendar, calculate_employee, db_retrieve, db_supply, \
-    gen_helpers as gh, html_report
+    gen_helpers as gh
 
 
 def load_dataframes(ref_date: datetime, config: configparser.ConfigParser):
@@ -93,10 +93,7 @@ def company_year_forecast(config: configparser.ConfigParser, ref_date: datetime)
         total_cost = employee_cost + freelance_cost + management_cost + administration_cost + general_cost
         total_revenue = employee_revenue + freelance_revenue
         total_margin = total_revenue - total_cost
-        # adding all values to the dataframe
-        month_content = html_report.forecast_company_month(month, monthly_employee_data[month],
-                                                           monthly_freelance_data[month], management_cost,
-                                                           administration_cost, general_cost)
+
         # todo: we should capture the month_content data in a buffer somewhere to quickly generate
         # month specific pages
         # maybe we should do this with a dropdown as on the employee page, and when a month is selected in
@@ -178,32 +175,4 @@ def employee_month_forecast(config: configparser.ConfigParser, ref_date: datetim
     # sort dataframe by index
     cost_frame.sort_index(inplace=True)
 
-    # creating html content for the detailed month report
-    content = f'<h4>Detailoverzicht maand {gh.get_month_name(ref_date.month)}</h4>\n'
-    content += ('<p>Gedetailleerde cijfers voor interne medewerkers. Opgelet! Enkel en dubbel vakantiegeld worden niet'
-                'vermeld en niet verrekend aangezien dit boekhoudkundig verrekend wordt met de provisie.</p>\n')
-    content += cost_frame.to_html(escape=False)
-    # print month to html
-    html_report.generate_html(f'{output_dir}/report-company_{ref_date.year}_{ref_date.month}_empl_details.html',
-                              f'Gedetailleerde cijfers bedienden {ref_date.year}'
-                              f' {gh.get_month_name(ref_date.month)}', content)
-
-
-def employee_year_simulation(config: configparser.ConfigParser, employee_id: int, ref_date: datetime, ):
-    """Calculate the yearly simulation for one specific employee and generate a html report, this function as it is
-    currently set up uses the real calendar and does not assume a fixed number of working days per year as was the
-    case in the Excel simulation."""
-    # get employee name
-    employee_name = gh.get_consultant_name(employee_id)
-    # log main function execution
-    print(f"-- Calculating yearly simulation for {employee_name} (id {str(employee_id)})")
-    # get location of output directory
-    output_dir = config.get('PARAMETERS', 'outputdir')
-    # get yearly cost and income for employee
-    cost_overview, yearly_revenue, parameters = calculate_employee.yearly_cost_income(config, employee_id, ref_date,
-                                                                                      True)
-    # create html content for the yearly simulation
-    content = html_report.forecast_employee_year(employee_id, employee_name, ref_date, cost_overview, yearly_revenue,
-                                                 parameters)
-    html_report.generate_html(f'{output_dir}/report-employee_{employee_id}_{ref_date.year}_simulation.html',
-                              f'Jaarlijkse simulatie {employee_name}', content)
+    return cost_frame

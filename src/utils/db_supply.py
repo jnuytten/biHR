@@ -15,7 +15,6 @@
 #
 import calendar
 import configparser
-from pickle import FALSE
 
 import pandas as pd
 from datetime import datetime

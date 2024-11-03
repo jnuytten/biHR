@@ -14,12 +14,14 @@
 # This file contains structure and functions to display the company forecast page.
 #
 
-from dash import dcc, html, dash_table, Input, Output
-import plotly.express as px
-from app import app, global_dataframes
+import dash
+from dash import dcc, html, dash_table, callback, Input, Output
 import configparser
+import pandas as pd
 from datetime import datetime
 from src.utils import main_functions
+
+dash.register_page(__name__, path='/')
 
 # load configuration parameters
 g_config = configparser.ConfigParser(allow_no_value=True, inline_comment_prefixes=";")
@@ -31,7 +33,43 @@ company_forecast, monthly_employee_data, monthly_freelance_data = main_functions
 # reset index so that it is displayed in the table
 company_forecast.reset_index(inplace=True)
 
-#todo: dropdown is defined but not showing anything on page when a month is selected
+month_mapping = {
+    'januari': 1,
+    'februari': 2,
+    'maart': 3,
+    'april': 4,
+    'mei': 5,
+    'juni': 6,
+    'juli': 7,
+    'augustus': 8,
+    'september': 9,
+    'oktober': 10,
+    'november': 11,
+    'december': 12
+}
+
+def get_month_data(selected_month):
+    if selected_month is None:
+        return None, None
+    month_number = month_mapping.get(selected_month.lower())
+    # filter data for selected month
+    employee_data = monthly_employee_data[month_number]
+    freelance_data = monthly_freelance_data[month_number]
+    # calculate sum totals in final row
+    employee_sum = employee_data.sum().round(2)
+    employee_sum_series = pd.Series(employee_sum, name='Totaal')
+    employee_data = pd.concat([employee_data, employee_sum_series.to_frame().T])
+    freelance_sum = freelance_data.sum().round(2)
+    freelance_sum_series = pd.Series(freelance_sum, name='Totaal')
+    freelance_data = pd.concat([freelance_data, freelance_sum_series.to_frame().T])
+    # reset index so that it is displayed in the table
+    employee_data.reset_index(inplace=True)
+    freelance_data.reset_index(inplace=True)
+    return employee_data, freelance_data
+
+# select the first month in company_forecast as default
+selected_month = company_forecast['index'].iloc[0]
+employee_data, freelance_data = get_month_data(selected_month)
 
 # layout of the page
 layout = html.Div([
@@ -41,59 +79,38 @@ layout = html.Div([
         columns=[{'name': col, 'id': col} for col in company_forecast.columns],
         data=company_forecast.to_dict('records')
     ),
+    html.Br(),
     dcc.Dropdown(
         id='month-dropdown',
         options=[{'label': row[0], 'value': row[0]} for row in company_forecast.itertuples(index=False)],
-        placeholder="Select a month"
+        value=selected_month
     ),
-    html.Div(id='monthly-data')
+    html.H2(f"Detail voor de maand {selected_month}", id='month_title'),
+    html.H3("Werknemers"),
+    dash_table.DataTable(
+        id='employee_data-table',
+        columns=[{'name': col, 'id': col} for col in employee_data.columns],
+        data=employee_data.to_dict('records')
+    ),
+    html.H3("Freelancers"),
+    dash_table.DataTable(
+        id = 'freelance_data-table',
+        columns=[{'name': col, 'id': col} for col in freelance_data.columns],
+        data=freelance_data.to_dict('records')
+    )
 ])
-
-@app.callback(
-    Output('monthly-data', 'children'),
+@callback(
+    [Output('month_title', 'children'),
+     Output('employee_data-table', 'data'),
+     Output('freelance_data-table', 'data')],
     Input('month-dropdown', 'value')
 )
 def update_monthly_data(selected_month):
+    print("Running update_monthly_data")
     if selected_month is None:
         return html.Div("Please select a month.")
-
-    # Filter the data for the selected month
-    #DEBUG fixed index 11
-    #todo fix index
-    employee_data = monthly_employee_data[11]
-    freelance_data = monthly_freelance_data[11]
-
-    return html.Div([
-        html.H2(f"Data for {selected_month}"),
-        html.H3("Employee Data"),
-        dash_table.DataTable(
-            columns=[{'name': col, 'id': col} for col in employee_data.columns],
-            data=employee_data.to_dict('records')
-        ),
-        html.H3("Freelance Data"),
-        dash_table.DataTable(
-            columns=[{'name': col, 'id': col} for col in freelance_data.columns],
-            data=freelance_data.to_dict('records')
-        )
-    ])
-
-
-#layout = html.Div([
-#    html.H1("Page 1 - Cost Frame"),
-#    dash_table.DataTable(
-#        id='table-cost_frame',
-#        columns=[{'name': col, 'id': col, 'editable': True} for col in cost_frame.columns],
-#        data=cost_frame.to_dict('records'),
-#        editable=True
-#    ),
-#    dcc.Graph(id='graph-cost_frame')
-#])
-
-#@app.callback(
-#    Output('graph-cost_frame', 'figure'),
-#    Input('table-cost_frame', 'data')
-#)
-#def update_graph_cost_frame(data):
-#    df = pd.DataFrame(data)
-#    fig = px.line(df, x='A', y='B', title='Cost frame Visualization')
-#    return fig
+    # filter data for selected month
+    employee_data, freelance_data = get_month_data(selected_month)
+    return (f"Detail voor de maand {selected_month}",
+            employee_data.to_dict('records'),
+            freelance_data.to_dict('records'))
