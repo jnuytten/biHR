@@ -11,28 +11,53 @@
 # <https://www.gnu.org/licenses/>.
 #
 #
-# This file contains structure and functions to display the company forecast page.
+# This file contains structure and functions to display the employee monthly cost forecast.
 #
 
 import dash
+import pandas as pd
 from dash import dcc, html, dash_table, callback, Input, Output
 from src.utils import config
 from src.utils import main_functions
 
 dash.register_page(__name__, path='/employee_monthly_cost')
 
-# load configuration parameters
-#g_config = configparser.ConfigParser(allow_no_value=True, inline_comment_prefixes=";")
-#g_config.read('config.ini')
+ref_date = config.g_ref_date
+month_mapping = {
+    'januari': 1,
+    'februari': 2,
+    'maart': 3,
+    'april': 4,
+    'mei': 5,
+    'juni': 6,
+    'juli': 7,
+    'augustus': 8,
+    'september': 9,
+    'oktober': 10,
+    'november': 11,
+    'december': 12
+}
 
-#ref_date = datetime(g_config.getint('PARAMETERS', 'year'), g_config.getint('PARAMETERS',
-#                                                                           'month'), 1)
 
-employee_monthly_cost = main_functions.employee_month_forecast(config.g_ref_date)
+# we need to get company_forecast just as a means to get the required months for the dropdown
+company_forecast, monthly_employee_data, monthly_freelance_data = main_functions.company_year_forecast()
+# reset index so that this works correctly to get the months
+company_forecast.reset_index(inplace=True)
+# select the first month in company_forecast as default
+selected_month = company_forecast['index'].iloc[0]
+
+employee_monthly_cost = main_functions.employee_month_forecast(ref_date)
 
 # layout of the page
 layout = html.Div([
     html.H1("Detail werknemerskosten"),
+    html.Br(),
+    dcc.Dropdown(
+        id='month-dropdown',
+        options=[{'label': row[0], 'value': row[0]} for row in company_forecast.itertuples(index=False)],
+        value=selected_month),
+    html.P(id='month-info'),
+    html.Br(),
     dash_table.DataTable(
         id='table-employee_cost',
         columns=[{'name': col, 'id': col} for col in employee_monthly_cost.columns],
@@ -40,3 +65,17 @@ layout = html.Div([
     )
 ])
 
+@callback(
+    [Output('month-info', 'children'),
+     Output('table-employee_cost', 'data')],
+    Input('month-dropdown', 'value')
+    )
+def update_employee_data(selected_month):
+    if selected_month is None:
+        return ("No month selected", [])
+    month_number = month_mapping.get(selected_month.lower())
+    ref_date = config.g_ref_date.replace(month=month_number)
+    employee_monthly_cost = main_functions.employee_month_forecast(ref_date)
+    return (f"Gedetailleerde data voor maand {selected_month}",
+            employee_monthly_cost.to_dict('records'),
+            )

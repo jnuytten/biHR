@@ -146,7 +146,7 @@ def employee_month_forecast(ref_date: datetime) -> pd.DataFrame:
                         'Hospitalisatieverz.', 'Groepsverz.', 'Administratie Securex', 'Verzekering BA',
                         'Verzekering AO', 'Mobiliteitskost', 'Opleiding', 'Attenties en activiteiten', 'Preventie',
                         'ICT']
-    cost_frame['Individuele kost'] = cost_frame[costs_to_include].sum(axis=1)
+    cost_frame['Individuele kost'] = cost_frame[costs_to_include].sum(axis=1).round(2)
     # add "Inkomsten na MSP" from revenue frame to cost frame
     cost_frame['Omzet'] = round(revenue_frame['Inkomsten na MSP'], 2)
     # sort dataframe by index
