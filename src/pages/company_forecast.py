@@ -16,35 +16,21 @@
 
 import dash
 from dash import dcc, html, dash_table, callback, Input, Output
-import configparser
 import pandas as pd
-from datetime import datetime
-from src.utils import config, main_functions
+from src.utils import config
+from src.data import data_store
 
 dash.register_page(__name__, path='/')
 
 # load configuration parameters
 g_config = config.g_config
-
 ref_date = config.g_ref_date
-company_forecast, monthly_employee_data, monthly_freelance_data = main_functions.company_year_forecast()
-# reset index so that it is displayed in the table
-company_forecast.reset_index(inplace=True)
 
-month_mapping = {
-    'januari': 1,
-    'februari': 2,
-    'maart': 3,
-    'april': 4,
-    'mei': 5,
-    'juni': 6,
-    'juli': 7,
-    'augustus': 8,
-    'september': 9,
-    'oktober': 10,
-    'november': 11,
-    'december': 12
-}
+# access dataframes, lists and dictionaries from the shared module
+company_forecast = data_store.company_forecast
+monthly_employee_data = data_store.monthly_employee_data
+monthly_freelance_data = data_store.monthly_freelance_data
+month_mapping = data_store.month_mapping
 
 def get_month_data(selected_month):
     if selected_month is None:

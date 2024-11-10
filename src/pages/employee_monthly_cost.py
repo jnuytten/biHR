@@ -13,39 +13,22 @@
 #
 # This file contains structure and functions to display the employee monthly cost forecast.
 #
-
 import dash
-import pandas as pd
 from dash import dcc, html, dash_table, callback, Input, Output
-from src.utils import config
-from src.utils import main_functions
+from src.utils import config, main_functions
+from src.data import data_store
 
 dash.register_page(__name__, path='/employee_monthly_cost')
 
+# load configuration parameters
 ref_date = config.g_ref_date
-month_mapping = {
-    'januari': 1,
-    'februari': 2,
-    'maart': 3,
-    'april': 4,
-    'mei': 5,
-    'juni': 6,
-    'juli': 7,
-    'augustus': 8,
-    'september': 9,
-    'oktober': 10,
-    'november': 11,
-    'december': 12
-}
 
+# access dataframes, lists and dictionaries from the shared module
+company_forecast = data_store.company_forecast
+month_mapping = data_store.month_mapping
 
-# we need to get company_forecast just as a means to get the required months for the dropdown
-company_forecast, monthly_employee_data, monthly_freelance_data = main_functions.company_year_forecast()
-# reset index so that this works correctly to get the months
-company_forecast.reset_index(inplace=True)
-# select the first month in company_forecast as default
+# select default month and calculate employee monthly cost
 selected_month = company_forecast['index'].iloc[0]
-
 employee_monthly_cost = main_functions.employee_month_forecast(ref_date)
 
 # layout of the page
@@ -73,8 +56,10 @@ layout = html.Div([
 def update_employee_data(selected_month):
     if selected_month is None:
         return ("No month selected", [])
+    # set ref_date to the selected month
     month_number = month_mapping.get(selected_month.lower())
     ref_date = config.g_ref_date.replace(month=month_number)
+    # calculate employee monthly cost for the selected month
     employee_monthly_cost = main_functions.employee_month_forecast(ref_date)
     return (f"Gedetailleerde data voor maand {selected_month}",
             employee_monthly_cost.to_dict('records'),

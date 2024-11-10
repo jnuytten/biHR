@@ -15,7 +15,6 @@
 #
 import pandas as pd
 from datetime import datetime
-import configparser
 import json
 import calendar
 from src.utils import calculate_calendar, config, db_supply, calculate_project, gen_helpers as gh
@@ -131,6 +130,9 @@ def monthly_cost(contract_id: int, ref_date: datetime, contract_frame: pd.DataFr
     # bezoldiging to calculate is the gross salary without the 'enkel vakantiegeld', but for RSZ calculations we have to take into account the full gross salary
     bezoldiging = (contract_frame.loc[contract_id, 'monthly_salary'] * company_paid_ratio * (1 - vacation_time_ratio)
                    * config.g_config.getfloat('PARAMETERS', 'inflator'))
+    #DEBUG
+    #print(f"Bezoldiging: {bezoldiging} voor bediende {employee_name}")
+    #print(f" Parameters: {contract_frame.loc[contract_id, 'monthly_salary']} * {company_paid_ratio} * (1 - {vacation_time_ratio}) * {config.g_config.getfloat('PARAMETERS', 'inflator')}")
     bezoldiging_rsz_basis = (contract_frame.loc[contract_id, 'monthly_salary'] * company_paid_ratio
                              * config.g_config.getfloat('PARAMETERS', 'inflator'))
     # create cost overview of the employee

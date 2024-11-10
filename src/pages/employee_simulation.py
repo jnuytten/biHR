@@ -17,8 +17,7 @@
 import dash
 from dash import dcc, html, dash_table, Input, Output, callback
 import pandas as pd
-import configparser
-from datetime import datetime
+from src.utils import config
 from src.utils import calculate_employee, db_supply
 
 dash.register_page(__name__, path='/employee_simulation')
@@ -42,11 +41,9 @@ def get_employee_data(employee_id):
     return cost_overview_transposed, summary, parameters
 
 # load configuration parameters
-g_config = configparser.ConfigParser(allow_no_value=True, inline_comment_prefixes=";")
-g_config.read('config.ini')
+g_config = config.g_config
+ref_date = config.g_ref_date
 
-ref_date = datetime(g_config.getint('PARAMETERS', 'year'), g_config.getint('PARAMETERS',
-                                                                           'month'), 1)
 # generate page specific dataframes
 employee_df = db_supply.worker_list_get('intern', ref_date)
 employee_df.sort_values(by='name', inplace=True)
@@ -96,6 +93,7 @@ layout = html.Div([
 def update_employee_info(selected_employee_id):
     if selected_employee_id is None:
         return ("No employee selected", [], [], "No revenue data")
+    # get data for the selected employee
     cost_overview_transposed, summary, parameters = get_employee_data(selected_employee_id)
     return (f"Simulatie wordt getoond voor werknemer {selected_employee_id}",
             parameters.to_dict('records'),
