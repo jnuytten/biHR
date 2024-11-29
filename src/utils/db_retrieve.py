@@ -167,7 +167,7 @@ def employee_calendar_insert(calendar_data: Dict[str, any], employee_id: int):
                 absence_durations["paid_sick_time"] += event['duration_minutes']
                 absence_durations["sick_time_total"] += event['duration_minutes']
             elif event['name'] in ("Thuiswerk", "Vrijwillige overuren zonder recup", "Recuperatie overuren",
-                                   "Overuren zonder recuperatie"):
+                                   "Overuren zonder recuperatie", "Netto Relance-overuren zonder recuperatie"):
                 pass
             else:
                 raise ValueError(f"Unknown event name: {event['name']}")
