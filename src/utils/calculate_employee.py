@@ -274,7 +274,7 @@ def yearly_cost_income(employee_id: int, real_calendar: bool = False) -> (pd.Dat
     same as those done by the loonberekening Excel file
     The real_calendar parameter is used to determine if the actual workdays and billable days should be used, or if the
     configured "average" billable days are used
-    Function returns the calculation results as well as the parameters for display by a html parsing function.
+    Function returns the calculation results as well as the parameters for display by a reporting function.
     """
     ref_date = config.g_ref_date
     # get global hr values
@@ -288,7 +288,6 @@ def yearly_cost_income(employee_id: int, real_calendar: bool = False) -> (pd.Dat
     if contract_change:
         gh.logger(f"Contract for {employee_id} is starting or ending in year {ref_date.year}.")
 
-    # todo: review all FTE logic whether it still makes sense!!!
     # calculate correction factor FTE, to take into the actual fte time that are paid hours
     company_paid_ratio, vacation_time_ratio = calculate_calendar.get_fte_ratios(
         employee_id,

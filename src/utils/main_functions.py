@@ -89,20 +89,11 @@ def company_year_forecast():
         freelance_revenue = monthly_freelance_data[month]['Omzet'].sum()
         # calculate general costs
         management_cost = global_hr_values.loc['CS001', 'waarde'] / 12
-        administration_cost = global_hr_values.loc['CS002', 'waarde'] / 12
         general_cost = global_hr_values.loc['CS003', 'waarde'] / 12
         # calculating the totals
-        total_cost = employee_cost + freelance_cost + management_cost + administration_cost + general_cost
+        total_cost = employee_cost + freelance_cost + management_cost + general_cost
         total_revenue = employee_revenue + freelance_revenue
         total_margin = total_revenue - total_cost
-
-        # todo: we should capture the month_content data in a buffer somewhere to quickly generate
-        # month specific pages
-        # maybe we should do this with a dropdown as on the employee page, and when a month is selected in
-        # the dropdown, the month detail appears in a pane below the yearly summary
-
-        # todo: we also need this but this can be on a separate function and be calculated every time again
-        #employee_month_forecast(config, ref_date.replace(month=month))
 
         # add month summary data to year dataframe
         summary = {
@@ -110,7 +101,6 @@ def company_year_forecast():
             'Personeelskost': round(employee_cost, 0),
             'Freelance kost': round(freelance_cost, 0),
             'Management tijd': round(management_cost, 0),
-            'Administratie': round(administration_cost, 0),
             'Algemene kosten': round(general_cost, 0),
             'Totaal kosten': round(total_cost, 0),
             'Omzet internen': round(employee_revenue, 0),
