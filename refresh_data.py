@@ -15,10 +15,7 @@
 # the latest data from the Officient API and CSV files.
 #
 
-import configparser
 import locale
-from datetime import datetime
-from src.utils import config
 from src.utils import main_functions
 
 
