@@ -19,6 +19,7 @@ from dash import dcc, html, dash_table, Input, Output, callback
 import pandas as pd
 from src.utils import config
 from src.utils import calculate_employee, db_supply
+from src.components.navigation import get_navigation
 
 dash.register_page(__name__, path='/employee_simulation')
 
@@ -55,6 +56,7 @@ cost_overview_transposed, summary, parameters = get_employee_data(employee_id)
 
 # layout of the page
 layout = html.Div([
+    get_navigation(),
     html.H1("Simulatie werknemer"),
     dcc.Dropdown(
         id='employee-dropdown',

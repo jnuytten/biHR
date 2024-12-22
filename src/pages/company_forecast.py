@@ -19,6 +19,7 @@ from dash import dcc, html, dash_table, callback, Input, Output
 import pandas as pd
 from src.utils import config
 from src.data import data_store
+from src.components.navigation import get_navigation
 
 dash.register_page(__name__, path='/')
 
@@ -57,6 +58,7 @@ employee_data, freelance_data = get_month_data(selected_month)
 
 # layout of the page
 layout = html.Div([
+    get_navigation(),
     html.H1("Simulatie bedrijf"),
     dash_table.DataTable(
         id='table-company_year',
