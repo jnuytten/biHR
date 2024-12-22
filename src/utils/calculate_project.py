@@ -15,6 +15,7 @@
 #
 from datetime import datetime
 import calendar
+import pandas as pd
 from src.utils import db_supply, gen_helpers as gh
 
 
@@ -57,3 +58,37 @@ def get_project_fte(project_id: int) -> float:
     # no project found, defaulting to 1
     print(f'No percentage defined for project {project_id}, setting FTE to 1.00.')
     return 1.00
+
+
+def temporary_project_compose(csvfile: str) -> pd.DataFrame:
+    """Get a list of projects from csv file into a dataframe"""
+    dtype = {'Offerte': str, 'Eindklant': str, 'Klant': str, 'Bedrag ex. BTW': float, 'Status': str, 'Periode': str,
+             '25 procent': float, '50 procent': float, '100 procent': float}
+    csv_project_frame = pd.read_csv(csvfile, dtype=dtype, decimal=',', sep=';')
+    # Convert percentage columns back to integers, handling NA values
+    csv_project_frame['25 procent'] = csv_project_frame['25 procent'].fillna(0).astype(int)
+    csv_project_frame['50 procent'] = csv_project_frame['50 procent'].fillna(0).astype(int)
+    csv_project_frame['100 procent'] = csv_project_frame['100 procent'].fillna(0).astype(int)
+    # create frome the CSV file a temporary project dataframe with general info columns, total amount and depending on
+    # the month indicated in 25, 50 and 100 procent columns a split of the invoice amount over the months
+    temporary_project_frame = csv_project_frame[['Offerte', 'Eindklant', 'Bedrag ex. BTW', 'Status']].copy()
+
+    # Add 12 columns named 1 to 12
+    for month in range(1, 13):
+        temporary_project_frame[str(month)] = 0.0
+
+    # Distribute the "Bedrag ex. BTW" amount based on the percentages
+    for index, row in csv_project_frame.iterrows():
+        amount = row['Bedrag ex. BTW']
+        if row['25 procent'] in range(1, 13):
+            temporary_project_frame.at[index, str(row['25 procent'])] += amount * 0.25
+        if row['50 procent'] in range(1, 13):
+            temporary_project_frame.at[index, str(row['50 procent'])] += amount * 0.50
+        if row['100 procent'] in range(1, 13):
+            remaining_amount = amount
+            if row['25 procent'] in range(1, 13):
+                remaining_amount -= temporary_project_frame.at[index, str(row['25 procent'])]
+            if row['50 procent'] in range(1, 13):
+                remaining_amount -= temporary_project_frame.at[index, str(row['50 procent'])]
+            temporary_project_frame.at[index, str(row['100 procent'])] += remaining_amount
+    return temporary_project_frame

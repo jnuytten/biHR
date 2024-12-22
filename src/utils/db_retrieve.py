@@ -73,6 +73,8 @@ def workers_list_compose(freelancefile: str):
     missing_values = freelance_list.isnull().sum() + employee_list.isnull().sum()
     if missing_values.any():
         raise ValueError('Input dataframe is missing required values: freelance_list')
+    # empty table
+    gh.truncate_table("people_workers")
     # insert into SQL
     worker_list_db_exec(freelance_list)
     worker_list_db_exec(employee_list)

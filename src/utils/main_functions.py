@@ -15,13 +15,9 @@
 # later-on these functions can be called from a reporting tool or a web interface
 #
 from datetime import datetime
-import configparser
 import pandas as pd
-import json
 from src.utils import calculate_freelance, calculate_calendar, calculate_employee, db_retrieve, db_supply, \
-    config, gen_helpers as gh
-from src.utils.config import g_config
-
+    config, calculate_project, gen_helpers as gh
 
 def load_dataframes():
     """Load all global dataframes with data from SQL database"""
@@ -66,7 +62,15 @@ def refresh_from_csv():
     db_retrieve.project_list_compose(config.g_config.get('FILES', 'projects'))
 
 
-def company_year_forecast():
+def load_temporary_projects() -> pd.DataFrame:
+    """Load temporary projects from CSV to dataframe"""
+    # log main function execution
+    print(f"-- Loading temporary projects to dataframe")
+    # compose a list of temporary projects and insert into dataframe
+    return calculate_project.temporary_project_compose(config.g_config.get('FILES', 'temporary_projects'))
+
+
+def company_year_forecast() -> (pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame):
     """Calculate the forecast of the year for the whole company and generate a dataframe summarizing this."""
     ref_date = config.g_ref_date
     # log main function execution
@@ -77,6 +81,8 @@ def company_year_forecast():
     monthly_employee_data = calculate_employee.get_year_of_monthly_summaries()
     # get monthly summaries of freelancer data
     monthly_freelance_data = calculate_freelance.get_year_of_monthly_summaries()
+    # get list of temporary projects
+    temporary_projects = load_temporary_projects()
     # define dictionary to store monthly summary data for the year overview
     year_data = {}
     # loop over monthly summaries and calculate company-wide forecast
@@ -87,12 +93,17 @@ def company_year_forecast():
         # calculate freelance totals
         freelance_cost = monthly_freelance_data[month]['Kostprijs'].sum()
         freelance_revenue = monthly_freelance_data[month]['Omzet'].sum()
+        # calculate revenue from temporary projects for the month
+        temporary_projects_revenue = 0
+        for x in temporary_projects.index:
+            if temporary_projects.loc[x, str(month)] > 0:
+                temporary_projects_revenue += temporary_projects.loc[x, str(month)]
         # calculate general costs
         management_cost = global_hr_values.loc['CS001', 'waarde'] / 12
-        general_cost = global_hr_values.loc['CS003', 'waarde'] / 12
+        general_cost = (global_hr_values.loc['CS003', 'waarde'] + global_hr_values.loc['CS004', 'waarde']) / 12
         # calculating the totals
         total_cost = employee_cost + freelance_cost + management_cost + general_cost
-        total_revenue = employee_revenue + freelance_revenue
+        total_revenue = employee_revenue + freelance_revenue + temporary_projects_revenue
         total_margin = total_revenue - total_cost
 
         # add month summary data to year dataframe
@@ -105,6 +116,7 @@ def company_year_forecast():
             'Totaal kosten': round(total_cost, 0),
             'Omzet internen': round(employee_revenue, 0),
             'Omzet freelancers': round(freelance_revenue, 0),
+            'Omzet tijdelijke projecten': round(temporary_projects_revenue, 0),
             'Omzet': round(total_revenue, 0),
             'Bruto marge': round(total_margin, 0)
         }
@@ -119,7 +131,7 @@ def company_year_forecast():
     sum_series = pd.Series(cal_sum, name='Totaal')
     overview_frame = pd.concat([overview_frame, sum_series.to_frame().T])
 
-    return overview_frame, monthly_employee_data, monthly_freelance_data
+    return overview_frame, monthly_employee_data, monthly_freelance_data, temporary_projects
 
 
 def employee_month_forecast(ref_date: datetime) -> pd.DataFrame:

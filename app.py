@@ -39,8 +39,8 @@ locale.setlocale(locale.LC_ALL, "nl_BE.utf8")
 main_functions.load_dataframes()
 
 # Initialize the dataframes and store them in the shared module
-data_store.company_forecast, data_store.monthly_employee_data, data_store.monthly_freelance_data =(
-    main_functions.company_year_forecast())
+(data_store.company_forecast, data_store.monthly_employee_data, data_store.monthly_freelance_data,
+ data_store.temporary_projects) = main_functions.company_year_forecast()
 data_store.company_forecast.reset_index(inplace=True)
 
 # Initialize some lists and dictionaries

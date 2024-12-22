@@ -22,5 +22,7 @@ def get_navigation():
         html.Span(' | '),
         dcc.Link('Employee Monthly Cost', href='/employee_monthly_cost'),
         html.Span(' | '),
+        dcc.Link('Temporary Projects', href='/temporary_projects'),
+        html.Span(' | '),
         dcc.Link('Employee Simulation', href='/employee_simulation'),
     ], style={'padding': '10px', 'backgroundColor': '#f8f9fa', 'borderBottom': '1px solid #dee2e6'})
