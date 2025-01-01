@@ -153,7 +153,10 @@ def get_fte_ratios(employee_id: int, start_date: datetime, end_date: datetime, u
     # in all other cases, employee works full month, scheduled time is a correct measure
     else:
         company_paid_ratio = round(((scheduled_time - unpaid_leave) / scheduled_time), 2)
-        vacation_time_ratio = round((vacation_time / (scheduled_time - unpaid_leave)), 2)
+        if company_paid_ratio == 0:
+            vacation_time_ratio = 0
+        else:
+            vacation_time_ratio = round((vacation_time / (scheduled_time - unpaid_leave)), 2)
 
     return float(company_paid_ratio), float(vacation_time_ratio)
 
