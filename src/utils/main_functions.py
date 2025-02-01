@@ -100,9 +100,10 @@ def company_year_forecast() -> (pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Dat
                 temporary_projects_revenue += temporary_projects.loc[x, str(month)]
         # calculate general costs
         management_cost = global_hr_values.loc['CS001', 'waarde'] / 12
-        general_cost = (global_hr_values.loc['CS003', 'waarde'] + global_hr_values.loc['CS004', 'waarde']) / 12
+        general_cost = global_hr_values.loc['CS003', 'waarde'] / 12
+        testing_cost = global_hr_values.loc['CS004', 'waarde'] / 12
         # calculating the totals
-        total_cost = employee_cost + freelance_cost + management_cost + general_cost
+        total_cost = employee_cost + freelance_cost + management_cost + general_cost + testing_cost
         total_revenue = employee_revenue + freelance_revenue + temporary_projects_revenue
         total_margin = total_revenue - total_cost
 
@@ -113,6 +114,7 @@ def company_year_forecast() -> (pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Dat
             'Freelance kost': round(freelance_cost, 0),
             'Management tijd': round(management_cost, 0),
             'Algemene kosten': round(general_cost, 0),
+            'Testing kosten': round(testing_cost, 0),
             'Totaal kosten': round(total_cost, 0),
             'Omzet internen': round(employee_revenue, 0),
             'Omzet freelancers': round(freelance_revenue, 0),
