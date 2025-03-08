@@ -20,14 +20,12 @@ db_name = <your sql database name>
 officient_key = <your officient api key>
 ```
 5. Set configuration in the `config.ini` file
-6. Run the `main.py` file
+6. Run the `refresh_data.py`script to get data from Officient and CSV files to the SQL database 
+7. Run the `app.py` file
 
 ## Usage
-The program is run from the `main.py` file.
-The program will retrieve data from the Officient API and CSV files, and store it in
-a MySQL database.
-The data is then analyzed and visualized as HTML files. The use of Dash for more
-interactive reports is currently under development.
+The program is run from the `app.py` file.
+Data can be visualized using Dash in a browser.
 
 ## License
 
