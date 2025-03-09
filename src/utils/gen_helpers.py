@@ -18,7 +18,7 @@ import mysql.connector
 import subprocess
 import configparser
 import os
-from src.utils import config
+from src.utils import config, db_supply
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -74,6 +74,31 @@ def get_consultant_name(consultant_id: int) -> str:
             cursor.execute(f"SELECT name FROM people_workers WHERE id = {consultant_id}")
             name = cursor.fetchone()[0]
     return name
+
+
+def get_consultant_function(consultant_id: int) -> str:
+    """Return the function of the consultant as a string"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(f"SELECT role_name FROM people_workers WHERE id = {consultant_id}")
+            role_name = cursor.fetchone()[0]
+    return role_name
+
+
+def get_consultant_names_dict() -> dict:
+    """Get a dictionary mapping consultant IDs to names"""
+    worker_list = db_supply.worker_list_get()
+    # Convert DataFrame to dictionary with index as keys and 'name' column as values
+    return worker_list['name'].to_dict()
+
+
+def get_worker_team(worker_id: int) -> str:
+    """Return the name of the team of which the worker is part"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(f"SELECT team FROM people_workers WHERE id = {worker_id}")
+            team = cursor.fetchone()[0]
+    return team
 
 
 def create_sql_dump():

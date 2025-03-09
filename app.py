@@ -20,10 +20,10 @@
 import dash
 from dash import Dash, dcc, html
 import locale
-from src.utils import main_functions
+from src.utils import main_functions, gen_helpers as gh
 from src.data import data_store
 
-print("biHR Copyright (C) 2024 Joachim Nuyttens")
+print("biHR Copyright (C) 2025 Joachim Nuyttens")
 print("This program comes with ABSOLUTELY NO WARRANTY.")
 print("This is free software, and you are welcome to redistribute it under version 3 of the GNU General Public"
       " License.")
@@ -39,9 +39,28 @@ locale.setlocale(locale.LC_ALL, "nl_BE.utf8")
 main_functions.load_dataframes()
 
 # Initialize the dataframes and store them in the shared module
-(data_store.company_forecast, data_store.monthly_employee_data, data_store.monthly_freelance_data,
- data_store.temporary_projects) = main_functions.company_year_forecast()
+(data_store.company_forecast,
+ data_store.monthly_employee_data,
+ data_store.monthly_freelance_data,
+ data_store.temporary_projects)\
+    = main_functions.company_year_forecast()
 data_store.company_forecast.reset_index(inplace=True)
+
+(data_store.company_forecast_testing,
+ data_store.monthly_employee_data_testing,
+ data_store.monthly_freelance_data_testing,
+ data_store.temporary_projects_testing)\
+= main_functions.company_year_forecast(["Testing"])
+data_store.company_forecast_testing.reset_index(inplace=True)
+
+(data_store.company_forecast_notesting,
+ data_store.monthly_employee_data_notesting,
+ data_store.monthly_freelance_data_notesting,
+ data_store.temporary_projects_notesting)\
+    = main_functions.company_year_forecast(["Projects & Business Development", "Operations"])
+data_store.company_forecast_notesting.reset_index(inplace=True)
+
+data_store.worker_names = gh.get_consultant_names_dict()
 
 # Initialize some lists and dictionaries
 data_store.month_mapping = {
@@ -63,7 +82,7 @@ data_store.month_mapping = {
 ### INITIALIZE DASH APP ###
 ###########################
 
-app = Dash(__name__, use_pages=True, pages_folder='src/pages')
+app = Dash(__name__, use_pages=True, pages_folder='src/pages', suppress_callback_exceptions=True)
 
 if __name__ == '__main__':
     app.run(debug=True)

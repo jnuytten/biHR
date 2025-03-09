@@ -20,7 +20,7 @@ from src.utils import main_functions
 
 
 def main():
-    print("biHR Copyright (C) 2024 Joachim Nuyttens")
+    print("biHR Copyright (C) 2025 Joachim Nuyttens")
     print("This program comes with ABSOLUTELY NO WARRANTY.")
     print("This is free software, and you are welcome to redistribute it under version 3 of the GNU General Public"
           " License.")

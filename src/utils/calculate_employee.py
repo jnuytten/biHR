@@ -87,17 +87,15 @@ def get_net_allowance(contract_id: int, contract_frame: pd.DataFrame, hr_values:
         return hr_values.loc['HR031', 'waarde']
 
 
-def monthly_cost(contract_id: int, ref_date: datetime, contract_frame: pd.DataFrame, worker_list: pd.DataFrame,
-                 monthly_revenue: float) -> dict:
+def monthly_cost(contract_id: int, ref_date: datetime, contract_frame: pd.DataFrame, monthly_revenue: float) -> dict:
     """Retrieve and calculate monthly salary cost for employee contract with specified id
     This function does not yield a proper result on employee level but is only to be used on the company level. It does
     NOT include general company costs (e.g. accounting), management and administration cost
     """
     # get global hr values
     global_hr_values = db_supply.global_hr_values
-    # get employee name
+    # get employee id
     employee_id = contract_frame.loc[contract_id, 'employee_id']
-    employee_name = worker_list.loc[employee_id, 'name']
     # get number of expected workdays from calendar
     expected_workdays = calculate_calendar.get_workhours(
         employee_id,
@@ -107,7 +105,7 @@ def monthly_cost(contract_id: int, ref_date: datetime, contract_frame: pd.DataFr
     # evaluate if contract is starting or ending in the current month
     contract_change = evaluate_contract_start_end(contract_id, contract_frame, ref_date, 'm')
     if contract_change:
-        gh.logger(f"Contract for {employee_name} is starting or ending in month {ref_date.month}.")
+        gh.logger(f"Contract for {employee_id} is starting or ending in month {ref_date.month}.")
     # calculate correction factor FTE, to take into the actual fte time that are paid hours
     company_paid_ratio, vacation_time_ratio = calculate_calendar.get_fte_ratios(
         employee_id,
@@ -130,14 +128,11 @@ def monthly_cost(contract_id: int, ref_date: datetime, contract_frame: pd.DataFr
     # bezoldiging to calculate is the gross salary without the 'enkel vakantiegeld', but for RSZ calculations we have to take into account the full gross salary
     bezoldiging = (contract_frame.loc[contract_id, 'monthly_salary'] * company_paid_ratio * (1 - vacation_time_ratio)
                    * config.g_config.getfloat('PARAMETERS', 'inflator'))
-    #DEBUG
-    #print(f"Bezoldiging: {bezoldiging} voor bediende {employee_name}")
-    #print(f" Parameters: {contract_frame.loc[contract_id, 'monthly_salary']} * {company_paid_ratio} * (1 - {vacation_time_ratio}) * {config.g_config.getfloat('PARAMETERS', 'inflator')}")
     bezoldiging_rsz_basis = (contract_frame.loc[contract_id, 'monthly_salary'] * company_paid_ratio
                              * config.g_config.getfloat('PARAMETERS', 'inflator'))
     # create cost overview of the employee
     cost_overview = {
-        'Medewerker': employee_name,
+        'Medewerker': employee_id,
         'Bezoldiging': round(bezoldiging, 2),
         'Provisie vakantiegeld': round(bezoldiging * 0.182, 2),
         'Provisie eindejaarspremie': round(bezoldiging * (1 + global_hr_values.loc['HR401', 'waarde']) / 12, 2),
@@ -184,24 +179,26 @@ def monthly_revenue(employee_id: int, ref_date: datetime) -> (float, float):
     return revenue, revenue * (1 - msp_fee)
 
 
-def get_monthly_summary_data(ref_date: datetime) -> (pd.DataFrame, pd.DataFrame):
+def get_monthly_summary_data(ref_date: datetime,
+                             teams: list = ["Projects & Business Development", "Testing", "Operations"])\
+        -> (pd.DataFrame, pd.DataFrame):
     """Create two dataframes showing all different costs and incomes for all employees in a month
     These dataframe only include individual costs (salary package, ICT of individual employee, training,
     etc.) and income but do NOT include general company costs, management and administration cost
     """
-    worker_list = db_supply.worker_list_get('intern')
+    worker_list = db_supply.worker_list_get('intern', False, teams)
     cost_list = []
     revenue_list = []
     # get all employee contracts valid on ref_date
-    empl_contracts = db_supply.employee_contracts_get(ref_date)
+    empl_contracts = db_supply.employee_contracts_get(ref_date, teams)
     # loop over all employee contracts
     for index, row in empl_contracts.iterrows():
         contract_id = index
         employee_id = row['employee_id']
         revenue, revenue_msp = monthly_revenue(employee_id, ref_date)
-        cost_empl = monthly_cost(contract_id, ref_date, empl_contracts, worker_list, revenue)
+        cost_empl = monthly_cost(contract_id, ref_date, empl_contracts, revenue)
         cost_list.append(cost_empl)
-        revenue_empl = {'Medewerker': cost_empl['Medewerker'], 'Inkomsten na MSP': revenue_msp}
+        revenue_empl = {'Medewerker': employee_id, 'Inkomsten na MSP': revenue_msp}
         revenue_list.append(revenue_empl)
     return (pd.DataFrame.from_records(cost_list).set_index(['Medewerker']),
             pd.DataFrame.from_records(revenue_list).set_index(['Medewerker']))
@@ -221,11 +218,16 @@ def monthly_summary(cost_overview: pd.DataFrame, revenue_overview: pd.DataFrame)
         cost = cost_overview.loc[i, costs_to_include].sum(axis=0)
         income = revenue_overview.loc[i].sum(axis=0)
         margin = income - cost
-        # if summary dataframe is not for full year, then do not include margin percentage
-        overview_one_empl = {'Medewerker': i, 'Kostprijs': round(cost, 2), 'Omzet': round(income, 2),
+        # retrieve team name of employee for later filtering
+        team = gh.get_worker_team(i)
+        # create overview for one employee
+        overview_one_empl = {'Medewerker Id': i,
+                             'Team': team,
+                             'Kostprijs': round(cost, 2),
+                             'Omzet': round(income, 2),
                              'Bruto marge': round(margin, 2)}
         overview.append(overview_one_empl)
-    overview_frame = pd.DataFrame.from_records(overview).set_index(['Medewerker'])
+    overview_frame = pd.DataFrame.from_records(overview).set_index(['Medewerker Id'])
     # drop employees in ignore list
     try:
         overview_frame.drop(ignore_list, inplace=True)
@@ -237,7 +239,8 @@ def monthly_summary(cost_overview: pd.DataFrame, revenue_overview: pd.DataFrame)
     return overview_frame
 
 
-def get_year_of_monthly_summaries():
+def get_year_of_monthly_summaries(teams: list = ["Projects & Business Development", "Testing", "Operations"])\
+        -> dict:
     """Get all monthly employee summaries, starting with current month of ref_date, for the whole year"""
     ref_date = config.g_ref_date
     # create dictionary to store the monthly employee summaries
@@ -245,7 +248,7 @@ def get_year_of_monthly_summaries():
     # loop over all months of the year, starting from the current month
     for month in range(ref_date.month, 13):
         month_date = datetime(ref_date.year, month, 1)
-        monthly_cost, monthly_income = get_monthly_summary_data(month_date)
+        monthly_cost, monthly_income = get_monthly_summary_data(month_date, teams)
         # get summarized employee data for the month, and append to dictionary
         monthly_employee_summaries[month] = monthly_summary(monthly_cost, monthly_income)
     return monthly_employee_summaries

@@ -25,10 +25,16 @@ def employee_list_get() -> pd.DataFrame:
     """Get JSON object from Officient API with all active employees"""
     employee_data = officient_api_queries.get_json("https://api.officient.io/1.0/people/list?include_archived=0")
     # extract relevant data
-    relevant_data = [
-        {'Id': item['id'], 'Name': item['name'], 'Role': item['role_name']}
-        for item in employee_data['data']
-    ]
+    relevant_data = []
+    for item in employee_data['data']:
+        # for each employee execute one additional api query to get the team name
+        item_detail = officient_api_queries.get_json(f"https://api.officient.io/1.0/people/{item['id']}/detail")
+        # append employee data to the list
+        relevant_data.append({
+            'Id': item['id'],
+            'Name': item['name'],
+            'Role': item['role_name'],
+            'Team': item_detail['data']['team']['name']})
     return pd.DataFrame(relevant_data)
 
 
@@ -41,6 +47,8 @@ def freelance_list_get(freelancefile: str) -> pd.DataFrame:
     freelance_list.insert(2, "Role", 'Freelance', True)
     # put columns in right order
     freelance_list = freelance_list[['Id', 'Name', 'Role']]
+    # add team column for all freelancers with value "Projects & Business Development"
+    freelance_list['Team'] = "Projects & Business Development"
     return freelance_list
 
 
@@ -49,8 +57,8 @@ def worker_list_db_exec(workers: pd.DataFrame):
     ON DUPLICATE KEY UPDATE ensures that when id already exists the value
     is updated instead of added to the database"""
     query = """
-    INSERT INTO people_workers (id, name, role_name)
-    VALUES (%s, %s, %s)
+    INSERT INTO people_workers (id, name, role_name, team)
+    VALUES (%s, %s, %s, %s)
     ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     role_name = VALUES(role_name)
@@ -67,8 +75,8 @@ def workers_list_compose(freelancefile: str):
     freelance_list = freelance_list_get(freelancefile)
     employee_list = employee_list_get()
     # check required columns exist
-    gh.check_col_exists(freelance_list, ['Id', 'Name', 'Role'])
-    gh.check_col_exists(employee_list, ['Id', 'Name', 'Role'])
+    gh.check_col_exists(freelance_list, ['Id', 'Name', 'Role', 'Team'])
+    gh.check_col_exists(employee_list, ['Id', 'Name', 'Role', 'Team'])
     # check for missing values
     missing_values = freelance_list.isnull().sum() + employee_list.isnull().sum()
     if missing_values.any():
@@ -288,19 +296,26 @@ def employee_mobility_cost(employee_id: int, start_date: datetime, contract: lis
     if contract['estimated_monthly_cost']['base_components']['car'] != 0:
         return "car", contract['estimated_monthly_cost']['base_components']['car']
     else:
+        # DEBUG: this code is currently not working due to a bug in Officient not showing mobility budgets
         # if no car, then see if there is a LEGAL budget (= mobiliteitsbudget)
-        budget_data = employee_budget_get(employee_id, start_date.year)
-        for budget in budget_data['data']:
-            if budget['budget_type'] == 'LEGAL':
+        #budget_data = employee_budget_get(employee_id, start_date.year)
+        #for budget in budget_data['data']:
+        #    if budget['budget_type'] == 'LEGAL':
                 # take into account real fte to factor in part-time work, start_date is date the contract starts (to
                 # avoid doing the calculations over periods before the contract starts) and end_date is the 31st of
                 # december in the same year as start_date
-                end_date = datetime(start_date.year, 12, 31)
-                company_paid_ratio, vacation_time_ratio = calculate_calendar.get_fte_ratios(employee_id, start_date,
-                                                                                            end_date,
-                                                                                            True)
-                # if there is a budget, then calculate monthly cost based on 20% year salary and contract fte
-                return "budget", 13 * contract['rate'] * 0.2 * company_paid_ratio / 12
+        #        end_date = datetime(start_date.year, 12, 31)
+        #        company_paid_ratio, vacation_time_ratio = calculate_calendar.get_fte_ratios(employee_id, start_date,
+        #                                                                                    end_date,
+        #                                                                                    True)
+        # if there is a budget, then calculate monthly cost based on 20% year salary and contract fte
+        #DEBUG: temporary workardound
+        if gh.get_consultant_function(employee_id) != "Management Assistant":
+            end_date = datetime(start_date.year, 12, 31)
+            company_paid_ratio, vacation_time_ratio = calculate_calendar.get_fte_ratios(employee_id, start_date,
+                                                                                                end_date,
+                                                                                                True)
+            return "budget", 13 * contract['rate'] * 0.2 * company_paid_ratio / 12
         # if no car and no budget, return fixed allowance
         return "allowance", 80
 
@@ -385,6 +400,7 @@ def employee_contract_compose():
     gh.truncate_table("people_employee_contracts")
     # then create and loop over worker list
     worker_list = db_supply.worker_list_get('intern')
+    print(worker_list.index.tolist())
     for employee_id in worker_list.index.tolist():
         contract_data = employee_contract_get(employee_id)
         employee_contract_insert(contract_data, employee_id)

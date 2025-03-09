@@ -15,19 +15,24 @@
 #
 import calendar
 import configparser
+from typing import Concatenate
 
 import pandas as pd
 from datetime import datetime
 from src.utils import config, gen_helpers as gh
 
 
-def worker_list_get(scope: str = "all", ref_date: datetime = False) -> pd.DataFrame:
+def worker_list_get(scope: str = "all",
+                    ref_date: datetime = False,
+                    teams: list = ["Projects & Business Development", "Testing", "Operations"]) -> pd.DataFrame:
     """Get DataFrame with all workers from SQL, optional argument can be set to
     'all' (default) showing all workers
     'intern' showing all workers except freelancers
     other values, showing workers which match exactly with the role_name
     optional argument ref_date can be set to a datetime object, only employees with contract valid in that month are
     included"""
+    # define list of teams
+    teams_list = "(" + ", ".join(f"'{team}'" for team in teams) + ")"
     # if optional ref_date is set, only employees with contract valid in that month are included
     if ref_date and scope == 'intern':
         # only contracts not ending before ref_date's month start are included, end_date_bracket equals 1st of the month
@@ -40,16 +45,17 @@ def worker_list_get(scope: str = "all", ref_date: datetime = False) -> pd.DataFr
         FROM people_employee_contracts pec
         JOIN people_workers pw ON pec.employee_id = pw.id
         WHERE pec.start_date <= '{start_date_bracket}' AND (pec.end_date > '{end_date_bracket}' OR pec.end_date IS
-        NULL);
+        NULL) AND pw.team IN {teams_list};
         """
     else:
         if scope == 'all':
-            query = "SELECT id, name, role_name FROM people_workers"
+            query = f"SELECT id, name, role_name FROM people_workers WHERE team IN {teams_list}"
         elif scope == 'intern':
-            query = "SELECT id, name, role_name FROM people_workers WHERE role_name != 'Freelance'"
+            query = (f"SELECT id, name, role_name FROM people_workers WHERE role_name != 'Freelance'"
+                     f" AND team IN {teams_list}")
         else:
-            query = f"SELECT id, name, role_name FROM people_workers WHERE role_name = '{scope}'"
-
+            query = (f"SELECT id, name, role_name FROM people_workers WHERE role_name = '{scope}'"
+                     f" AND team IN {teams_list}")
     with gh.get_db_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute(query)
@@ -59,17 +65,24 @@ def worker_list_get(scope: str = "all", ref_date: datetime = False) -> pd.DataFr
     return df
 
 
-def employee_contracts_get(ref_date: datetime) -> pd.DataFrame:
+def employee_contracts_get(ref_date: datetime,
+                           teams: list = ["Projects & Business Development", "Testing", "Operations"])\
+        -> pd.DataFrame:
     """Get DataFrame with all employee contracts valid in a certain month, excluding those which expired before start
     of the month and those which start after the end of the month."""
+    # define list of teams
+    teams_list = "(" + ", ".join(f"'{team}'" for team in teams) + ")"
     # only contracts not ending before ref_date's month start are included, end_date_bracket equals 1st of the month
     end_date_bracket = ref_date.replace(day=1).strftime('%Y-%m-%d')
     # only contracts starting before ref_date's month end are included, start_date_bracket equals last of the month
     last_day = calendar.monthrange(ref_date.year, ref_date.month)[1]
     start_date_bracket = ref_date.replace(day=last_day).strftime('%Y-%m-%d')
     query = f"""
-    SELECT * FROM people_employee_contracts
-    WHERE start_date <= '{start_date_bracket}' AND (end_date > '{end_date_bracket}' OR end_date IS NULL);
+    SELECT pec.*
+    FROM people_employee_contracts pec
+    JOIN people_workers pw ON pec.employee_id = pw.id 
+    WHERE pec.start_date <= '{start_date_bracket}' AND (pec.end_date > '{end_date_bracket}' OR pec.end_date IS NULL)
+    AND pw.team IN {teams_list};
     """
     with gh.get_db_connection() as conn:
         with conn.cursor() as cursor:

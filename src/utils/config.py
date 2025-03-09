@@ -25,4 +25,6 @@ g_config = configparser.ConfigParser(allow_no_value=True, inline_comment_prefixe
 g_config.read('config.ini')
 
 # Define and initialize the global reference date
-g_ref_date = datetime(g_config.getint('PARAMETERS', 'year'), g_config.getint('PARAMETERS', 'month'), 1)
+g_ref_date = datetime(g_config.getint('PARAMETERS', 'year'),
+                      g_config.getint('PARAMETERS', 'month'), 1)
+

@@ -15,7 +15,7 @@
 #
 import pandas as pd
 from datetime import datetime
-from src.utils import db_supply, config, calculate_project
+from src.utils import db_supply, config, calculate_project, gen_helpers as gh
 
 
 def monthly_project_revenue(project_id: int, workdays: float) -> (float, float):
@@ -47,40 +47,50 @@ def monthly_cost(employee_id, monthly_revenue, days) -> (float, float):
     return dayrate_cost + operational_cost
 
 
-def monthly_summary(ref_date: datetime) -> pd.DataFrame:
+def monthly_summary(ref_date: datetime,
+                    teams: list = ["Projects & Business Development", "Testing", "Operations"]) -> pd.DataFrame:
     """Create one dataframe giving a list of all projects executed by freelancers, including name of the freelancer,
     project monthly revenue, project monthly cost and gross margin.
     """
-    worker_list = db_supply.worker_list_get('Freelance')
+    worker_list = db_supply.worker_list_get('Freelance', False, teams)
+    # If worker_list is empty, return an empty DataFrame
+    if worker_list.empty:
+        return pd.DataFrame(
+            columns=['Medewerker Id', 'Medewerker', 'Team', 'Project Id', 'Kostprijs', 'Omzet', 'Bruto marge'])
     project_data = []
     # loop over all freelance workers
-    for index, row in worker_list.iterrows():
+    for i in worker_list.index.tolist():
         # get projects active on ref date for this freelancer
         # todo: this function currently only retrieves one project, if working on multiple projects this will
         # include only one project
-        project_id, start_date, end_date = calculate_project.get_consultant_project(index, ref_date)
+        project_id, start_date, end_date = calculate_project.get_consultant_project(i, ref_date)
         # if no project found, skip this freelancer
         if project_id == 99999:
             continue
         workdays = calculate_project.get_project_fte(project_id) * 217 / 12
         revenue, revenue_msp = monthly_project_revenue(project_id, workdays)
         # calculate monthly cost: hourly fee and expenses
-        monthly_cost_freelance = monthly_cost(index, revenue, workdays)
-        # add to list of projects
-        project = {'Medewerker': row['name'],
+        monthly_cost_freelance = monthly_cost(i, revenue, workdays)
+        # retrieve team name of freelancer for later filtering
+        team = gh.get_worker_team(i)
+        # create overview for one freelancer
+        project = {'Medewerker Id': i,
+                   #'Medewerker': gh.get_consultant_name(i),
+                   'Team': team,
                    'Kostprijs': round(monthly_cost_freelance, 2),
                    'Omzet': round(revenue_msp, 2),
                    'Bruto marge': round(revenue_msp - monthly_cost_freelance, 2)
                    }
+        # add to list of projects
         project_data.append(project)
-    project_frame = pd.DataFrame.from_records(project_data).set_index(['Medewerker'])
+    project_frame = pd.DataFrame.from_records(project_data).set_index(['Medewerker Id'])
     project_frame.sort_index(inplace=True)
     # return one dataframe which is a list of projects with 3 columns: Medewerker, Kostprijs, Omzet, Bruto marge
     # todo: if a freelancer is working on two projects this is shown on two separate lines
     return project_frame
 
 
-def get_year_of_monthly_summaries():
+def get_year_of_monthly_summaries(teams: list = ["Projects & Business Development", "Testing", "Operations"]):
     """Get all monthly freelance summaries, starting with current month of ref_date, for the whole year"""
     ref_date = config.g_ref_date
     # create dictionary to store the monthly employee summaries
@@ -89,5 +99,5 @@ def get_year_of_monthly_summaries():
     for month in range(ref_date.month, 13):
         month_date = datetime(ref_date.year, month, 1)
         # get summarized employee data for the month, and append to dictionary
-        monthly_freelance_summaries[month] = monthly_summary(month_date)
+        monthly_freelance_summaries[month] = monthly_summary(month_date, teams)
     return monthly_freelance_summaries

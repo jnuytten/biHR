@@ -70,19 +70,23 @@ def load_temporary_projects() -> pd.DataFrame:
     return calculate_project.temporary_project_compose(config.g_config.get('FILES', 'temporary_projects'))
 
 
-def company_year_forecast() -> (pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame):
-    """Calculate the forecast of the year for the whole company and generate a dataframe summarizing this."""
+def company_year_forecast(teams: list = ["Projects & Business Development", "Testing", "Operations"])\
+        -> (pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame):
+    """Calculate the forecast of the year for the whole company (or a defined selection of teams)
+    and generate a dataframe summarizing this."""
     ref_date = config.g_ref_date
     # log main function execution
     print(f"-- Calculating yearly forecast for company for {ref_date.year}")
     # get global hr values and global freelance contracts
     global_hr_values = db_supply.global_hr_values
-    # get monthly summaries of employee data
-    monthly_employee_data = calculate_employee.get_year_of_monthly_summaries()
-    # get monthly summaries of freelancer data
-    monthly_freelance_data = calculate_freelance.get_year_of_monthly_summaries()
-    # get list of temporary projects
-    temporary_projects = load_temporary_projects()
+    # get monthly summaries of employee data, only includes listed teams
+    monthly_employee_data = calculate_employee.get_year_of_monthly_summaries(teams)
+    # get monthly summaries of freelancer data, only includes listed teams
+    monthly_freelance_data = calculate_freelance.get_year_of_monthly_summaries(teams)
+    # get list of temporary projects for the testing team, if included
+    temporary_projects = pd.DataFrame()
+    if "Testing" in teams:
+        temporary_projects = load_temporary_projects()
     # define dictionary to store monthly summary data for the year overview
     year_data = {}
     # loop over monthly summaries and calculate company-wide forecast
@@ -95,13 +99,33 @@ def company_year_forecast() -> (pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Dat
         freelance_revenue = monthly_freelance_data[month]['Omzet'].sum()
         # calculate revenue from temporary projects for the month
         temporary_projects_revenue = 0
-        for x in temporary_projects.index:
-            if temporary_projects.loc[x, str(month)] > 0:
-                temporary_projects_revenue += temporary_projects.loc[x, str(month)]
+        if "Testing" in teams:
+            for x in temporary_projects.index:
+                if temporary_projects.loc[x, str(month)] > 0:
+                    temporary_projects_revenue += temporary_projects.loc[x, str(month)]
+        # general cost division based on selected teams
+        management_cost_division = {
+            "Projects & Business Development": 0.5,
+            "Testing": 0,
+            "Operations": 0.5
+        }
+        general_cost_division = {
+            "Projects & Business Development": 0,
+            "Testing": 0,
+            "Operations": 1
+        }
+        testing_cost_division = {
+            "Projects & Business Development": 0,
+            "Testing": 1,
+            "Operations": 0
+        }
+        management_cost_part = sum(management_cost_division[team] for team in teams if team in management_cost_division)
+        general_cost_part = sum(general_cost_division[team] for team in teams if team in general_cost_division)
+        testing_cost_part = sum(testing_cost_division[team] for team in teams if team in testing_cost_division)
         # calculate general costs
-        management_cost = global_hr_values.loc['CS001', 'waarde'] / 12
-        general_cost = global_hr_values.loc['CS003', 'waarde'] / 12
-        testing_cost = global_hr_values.loc['CS004', 'waarde'] / 12
+        management_cost = management_cost_part * global_hr_values.loc['CS001', 'waarde'] / 12
+        general_cost = general_cost_part * global_hr_values.loc['CS003', 'waarde'] / 12
+        testing_cost = testing_cost_part * global_hr_values.loc['CS004', 'waarde'] / 12
         # calculating the totals
         total_cost = employee_cost + freelance_cost + management_cost + general_cost + testing_cost
         total_revenue = employee_revenue + freelance_revenue + temporary_projects_revenue

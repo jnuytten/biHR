@@ -28,6 +28,7 @@ CREATE TABLE people_workers (
     id INT NOT NULL,
     name VARCHAR(255) NOT NULL,
     role_name VARCHAR(255) NOT NULL,
+    team VARCHAR(255) NOT NULL,
     PRIMARY KEY (id)
 );
 CREATE TABLE people_employee_contracts (

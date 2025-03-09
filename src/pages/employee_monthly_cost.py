@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Joachim Nuyttens
+# Copyright (C) 2025 Joachim Nuyttens
 #
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later
@@ -27,10 +27,15 @@ ref_date = config.g_ref_date
 # access dataframes, lists and dictionaries from the shared module
 company_forecast = data_store.company_forecast
 month_mapping = data_store.month_mapping
+worker_names = data_store.worker_names
 
 # select default month and calculate employee monthly cost
 selected_month = company_forecast['index'].iloc[0]
 employee_monthly_cost = main_functions.employee_month_forecast(ref_date)
+employee_monthly_cost = employee_monthly_cost.rename(index=worker_names)
+# DEBUG
+#employee_monthly_cost.index = employee_monthly_cost.index.map(lambda x: worker_names.get(int(x), x))
+#print(employee_monthly_cost)
 
 # layout of the page
 layout = html.Div([
@@ -63,6 +68,7 @@ def update_employee_data(selected_month):
     ref_date = config.g_ref_date.replace(month=month_number)
     # calculate employee monthly cost for the selected month
     employee_monthly_cost = main_functions.employee_month_forecast(ref_date)
+    employee_monthly_cost = employee_monthly_cost.rename(index=worker_names)
     return (f"Gedetailleerde data voor maand {selected_month}",
             employee_monthly_cost.to_dict('records'),
             )
