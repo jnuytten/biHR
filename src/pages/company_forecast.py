@@ -24,11 +24,11 @@ from src.components.navigation import get_navigation
 
 dash.register_page(__name__, path='/')
 
-# Load configuration parameters
+# load configuration parameters
 g_config = config.g_config
 ref_date = config.g_ref_date
 
-# Layout of the page
+# layout of the page
 layout = html.Div([
     dcc.Location(id='url', refresh=False),  # Capture URL parameters
     get_navigation(),
@@ -45,7 +45,7 @@ layout = html.Div([
     html.Br(),
     dash_table.DataTable(id='table-company_year'),
     html.Br(),
-    dcc.Dropdown(id='month-dropdown'),
+    dcc.Dropdown(id='month-dropdown-cfo'),
     html.H2(id='month_title'),
     html.H3("Werknemers"),
     dash_table.DataTable(id='employee_data-table'),
@@ -57,53 +57,55 @@ layout = html.Div([
     [Output('output_scope', 'children'),
      Output('table-company_year', 'columns'),
      Output('table-company_year', 'data'),
-     Output('month-dropdown', 'options'),
-     Output('month-dropdown', 'value'),
+     Output('month-dropdown-cfo', 'options'),
+     Output('month-dropdown-cfo', 'value'),
      Output('month_title', 'children'),
      Output('employee_data-table', 'columns'),
      Output('employee_data-table', 'data'),
      Output('freelance_data-table', 'columns'),
      Output('freelance_data-table', 'data')],
     [Input('url', 'search'),
-     Input('month-dropdown', 'value')]
+     Input('month-dropdown-cfo', 'value')]
 )
 
 def update_page(search, selected_month):
-    # Extract scope from URL
+    # extract scope from URL
     query_params = urllib.parse.parse_qs(search.lstrip("?"))
     scope_value = query_params.get("scope", [""])[0]
+    if scope_value == "":
+        scope_value = "all"
 
-    # Select data based on scope
+    # select data based on scope, from the shared module
     if scope_value == "testing":
-        company_forecast = data_store.company_forecast_testing
-        monthly_employee_data = data_store.monthly_employee_data_testing
-        monthly_freelance_data = data_store.monthly_freelance_data_testing
+        company_forecast_select = data_store.company_forecast_testing
+        monthly_employee_data_select = data_store.monthly_employee_data_testing
+        monthly_freelance_data_select = data_store.monthly_freelance_data_testing
     elif scope_value == "notesting":
-        company_forecast = data_store.company_forecast_notesting
-        monthly_employee_data = data_store.monthly_employee_data_notesting
-        monthly_freelance_data = data_store.monthly_freelance_data_notesting
+        company_forecast_select = data_store.company_forecast_notesting
+        monthly_employee_data_select = data_store.monthly_employee_data_notesting
+        monthly_freelance_data_select = data_store.monthly_freelance_data_notesting
     else:
-        company_forecast = data_store.company_forecast
-        monthly_employee_data = data_store.monthly_employee_data
-        monthly_freelance_data = data_store.monthly_freelance_data
+        company_forecast_select = data_store.company_forecast
+        monthly_employee_data_select = data_store.monthly_employee_data
+        monthly_freelance_data_select = data_store.monthly_freelance_data
 
-    # Get month mapping and worker names
+    # get month mapping and worker names
     month_mapping = data_store.month_mapping
     worker_names = data_store.worker_names
 
-    # Default selected month
+    # default selected month
     if selected_month is None:
-        selected_month = company_forecast['index'].iloc[0]
+        selected_month = company_forecast_select['index'].iloc[0]
 
-    # Function to get month-specific data
+    # function to get month-specific data
     def get_month_data(month):
         if month is None:
             return pd.DataFrame(), pd.DataFrame()
         month_number = month_mapping.get(month.lower())
         if month_number is None:
             return pd.DataFrame(), pd.DataFrame()
-        employee_data = monthly_employee_data.get(month_number, pd.DataFrame()).rename(index=worker_names)
-        freelance_data = monthly_freelance_data.get(month_number, pd.DataFrame()).rename(index=worker_names)
+        employee_data = monthly_employee_data_select.get(month_number, pd.DataFrame()).rename(index=worker_names)
+        freelance_data = monthly_freelance_data_select.get(month_number, pd.DataFrame()).rename(index=worker_names)
         if not employee_data.empty:
             employee_data.loc['Totaal'] = employee_data.drop(columns=["Team"], errors='ignore').sum().round(2)
             employee_data.reset_index(inplace=True)
@@ -112,14 +114,14 @@ def update_page(search, selected_month):
             freelance_data.reset_index(inplace=True)
         return employee_data, freelance_data
 
-    # Get data for the selected month
+    # get data for the selected month
     employee_data, freelance_data = get_month_data(selected_month)
 
     return (
         f"Scope: {scope_value}",
-        [{'name': col, 'id': col} for col in company_forecast.columns],
-        company_forecast.to_dict('records'),
-        [{'label': row[0], 'value': row[0]} for row in company_forecast.itertuples(index=False)],
+        [{'name': col, 'id': col} for col in company_forecast_select.columns],
+        company_forecast_select.to_dict('records'),
+        [{'label': row[0], 'value': row[0]} for row in company_forecast_select.itertuples(index=False)],
         selected_month,
         f"Detail voor de maand {selected_month}",
         [{'name': col, 'id': col} for col in employee_data.columns],
