@@ -50,14 +50,35 @@ def update_page(selected_month):
     company_forecast = data_store.company_forecast
     month_mapping = data_store.month_mapping
     worker_names = data_store.worker_names
+
+    # handle case where no month is selected yet
     if selected_month is None:
         selected_month = company_forecast['index'].iloc[0]
+
     # set ref_date to the selected month
     month_number = month_mapping.get(selected_month.lower())
     ref_date = config.g_ref_date.replace(month=month_number)
     # calculate employee monthly cost for the selected month
     employee_monthly_cost = main_functions.employee_month_forecast(ref_date)
-    employee_monthly_cost = employee_monthly_cost.rename(index=worker_names)
+    #employee_monthly_cost = employee_monthly_cost.rename(index=worker_names)
+
+    # add employee names
+    if not employee_monthly_cost.empty:
+        # ensure index is a string (in case it's numeric)
+        employee_monthly_cost.index = employee_monthly_cost.index.astype(str)
+
+        # convert index to a column
+        employee_monthly_cost.reset_index(inplace=True)
+
+        # rename the column to "Employee Number"
+        employee_monthly_cost.rename(columns={'index': 'Id'}, inplace=True)
+
+        # add the full name column by mapping employee number to full name
+        employee_monthly_cost['Naam'] = employee_monthly_cost['Id'].map(worker_names)
+
+        # move "Full Name" next to "Employee Number"
+        cols = ['Id', 'Naam'] + [col for col in employee_monthly_cost.columns if col not in ['Id', 'Naam']]
+        employee_monthly_cost = employee_monthly_cost[cols]
 
     return (
         [{'label': row[0], 'value': row[0]} for row in company_forecast.itertuples(index=False)],

@@ -23,18 +23,20 @@ from src.utils import calculate_calendar, officient_api_queries, db_supply, conf
 
 def employee_list_get() -> pd.DataFrame:
     """Get JSON object from Officient API with all active employees"""
-    employee_data = officient_api_queries.get_json("https://api.officient.io/1.0/people/list?include_archived=0")
-    # extract relevant data
+    # create list to store relevant data
     relevant_data = []
-    for item in employee_data['data']:
-        # for each employee execute one additional api query to get the team name
-        item_detail = officient_api_queries.get_json(f"https://api.officient.io/1.0/people/{item['id']}/detail")
-        # append employee data to the list
-        relevant_data.append({
-            'Id': item['id'],
-            'Name': item['name'],
-            'Role': item['role_name'],
-            'Team': item_detail['data']['team']['name']})
+    # request JSON objects two times, because API has limit of 30 items per call, and we are above 30
+    for i in range(0,2):
+        employee_data = officient_api_queries.get_json(f"https://api.officient.io/1.0/people/list?include_archived=0&page={i}")
+        for item in employee_data['data']:
+            # for each employee execute one additional api query to get the team name
+            item_detail = officient_api_queries.get_json(f"https://api.officient.io/1.0/people/{item['id']}/detail")
+            # append employee data to the list
+            relevant_data.append({
+                'Id': item['id'],
+                'Name': item['name'],
+                'Role': item['role_name'],
+                'Team': item_detail['data']['team']['name']})
     return pd.DataFrame(relevant_data)
 
 
