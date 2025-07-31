@@ -312,6 +312,10 @@ def employee_mobility_cost(employee_id: int, start_date: datetime, contract: lis
         #                                                                                    True)
         # if there is a budget, then calculate monthly cost based on 20% year salary and contract fte
         #DEBUG: temporary workardound
+        # Set to 0 voor jobstudent
+        if gh.get_consultant_function(employee_id) == "Jobstudent":
+            return "allowance", 1
+        # if no jobstudent and no management assistant
         if gh.get_consultant_function(employee_id) != "Management Assistant":
             end_date = datetime(start_date.year, 12, 31)
             company_paid_ratio, vacation_time_ratio = calculate_calendar.get_fte_ratios(employee_id, start_date,
